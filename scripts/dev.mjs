@@ -1,0 +1,10 @@
+import { context } from 'esbuild';
+import { mkdir, copyFile, cp } from 'node:fs/promises';
+await mkdir('dist',{recursive:true});
+await copyFile('index.html','dist/index.html');
+await cp('public','dist',{recursive:true});
+const ctx = await context({ entryPoints: ['src/main.tsx'], outfile: 'dist/app.js', bundle: true, format: 'esm', target: ['es2022'], jsx: 'automatic', sourcemap: true, define: { 'process.env.NODE_ENV': '"development"' } });
+await ctx.watch();
+const server = await ctx.serve({ servedir: 'dist', host: '127.0.0.1', port: Number(process.env.PORT || 4173) });
+console.log(`Local: http://127.0.0.1:${server.port}`);
+for (const signal of ['SIGINT','SIGTERM']) process.on(signal, async () => { await ctx.dispose(); process.exit(0); });
