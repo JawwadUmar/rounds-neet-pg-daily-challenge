@@ -26,6 +26,15 @@ Browser tests use Playwright Chromium. If the browser is missing, run `npx playw
 
 `npm run build` emits the app, year-wise data modules, fonts and question figures in `dist/`. Upload the entire directory to a static host. Relative asset paths support deployment in a subdirectory. HTTPS enables native sharing and clipboard access on supported browsers.
 
+### GitHub Pages deployment
+
+A GitHub Actions workflow is configured in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) to automatically test, build, and deploy the application to GitHub Pages on every push to the `main` branch.
+
+To enable GitHub Pages in your repository:
+1. In your GitHub repository, go to **Settings** > **Pages**.
+2. Under **Build and deployment** > **Source**, choose **GitHub Actions**.
+3. Push to the `main` branch (or run the workflow manually from the **Actions** tab) to deploy.
+
 Do not open `index.html` directly with `file://`; browser module, storage and clipboard restrictions differ there. Use the development preview or static hosting. All application assets and question data are bundled locally. No external fonts, analytics, trackers or runtime API calls are used. The app does not install a service worker; offline reopening is not guaranteed.
 
 ## Question bank and provenance

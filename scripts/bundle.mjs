@@ -13,7 +13,9 @@ export function bundleOptions(outdir, production) {
 export async function copyStatic(outdir) {
   await mkdir(join(outdir,'assets/fonts'),{recursive:true});
   await Promise.all([
-    copyFile('index.html',join(outdir,'index.html')),cp('public',outdir,{recursive:true}),
+    copyFile('index.html',join(outdir,'index.html')),
+    copyFile('index.html',join(outdir,'404.html')),
+    cp('public',outdir,{recursive:true}),
     copyFile('node_modules/@fontsource-variable/playfair-display/LICENSE',join(outdir,'assets/fonts/Playfair-Display-LICENSE.txt')),
     copyFile('node_modules/@fontsource/courier-prime/LICENSE',join(outdir,'assets/fonts/Courier-Prime-LICENSE.txt')),
   ]);
