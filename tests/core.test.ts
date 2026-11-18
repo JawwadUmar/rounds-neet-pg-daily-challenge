@@ -5,23 +5,26 @@ import { SUBJECTS } from '../src/data/types';
 import { loadShelf, loadPapers } from '../src/data/pyq';
 import { addDays, calendarMonth, dayInZone, navigable, ordinal, secondsToMidnight } from '../src/core/dates';
 import { questionsForDate } from '../src/core/schedule';
-import { applyAction, clockIssue, emptyProgress, isComplete, mergeBackup, validateProgress, type Progress } from '../src/core/model';
+import { applyAction, clockIssue, emptyProgress, isComplete, mergeBackup, scoreDay, scoredCount, validateProgress, type Progress } from '../src/core/model';
 import { statistics } from '../src/core/stats';
 import { resultText } from '../src/core/share';
 const at = (date: string) => new Date(date + 'T12:00:00+05:30');
 function finish(progress: Progress, day: string, actual = day, uncertain = false) {
   let next = progress;
   for (const question of questionsForDate(day)) {
-    next = applyAction(next, { type: 'select', date: day, id: question.id, selected: question.correct }, at(actual));
+    if(!question.reviewOnly)next = applyAction(next, { type: 'select', date: day, id: question.id, selected: question.correct }, at(actual));
     next = applyAction(next, { type: 'submit', date: day, id: question.id, clockUncertain: uncertain }, at(actual));
   }
   return next;
 }
 test('daily bank and whole library retain distinct records and their original letters', async () => {
-  assert.equal(bank.length,285); assert.equal(byId.size,285);
-  for (const subject of SUBJECTS) assert.equal(bank.filter(q => q.subject === subject).length,15);
+  const full=await fullBank();
+  assert.equal(bank.length,2251); assert.equal(byId.size,2251);
+  for (const subject of SUBJECTS) assert.equal(bank.filter(q => q.subject === subject).length,practiceBank.filter(q=>q.subject===subject).length+full.filter(q=>q.subject===subject&&q.examYear!==null).length);
+  assert.equal(bank.filter(q=>q.examYear!==null).length,2061);
+  assert.ok(bank.filter(q=>q.examYear!==null).every(q=>q.type==='PYQ'&&q.examYear&&q.difficulty));
   for (const q of practiceBank) { assert.equal(q.type,'Practice'); assert.equal(q.examYear,null); assert.ok(q.references.length); assert.equal(new Set(Object.values(q.options)).size,4); }
-  const full=await fullBank(); assert.equal(new Set(full.map(q=>q.id)).size,2251);
+  assert.equal(new Set(full.map(q=>q.id)).size,2251);
   const first=full.find(q=>q.id==='pyq-2025-1')!;
   assert.equal(first.correct,'D');assert.equal(first.options.D,'Hypoglossal nerve');assert.equal(first.images?.length,1);
 });
@@ -42,12 +45,31 @@ test('frozen schedule protects historical mappings', () => {
 test('mixed edition covers the entire qualified pool without repeats and combines both types each day',()=>{
   const ids:string[]=[];
   for(let i=0;i<57;i++){
-    const qs=questionsForDate(addDays('2026-11-18',i));
-    assert.equal(new Set(qs.map(q=>q.subject)).size,5);
+    const qs=questionsForDate(addDays('2026-11-18',i),'v2');
+    assert.equal(new Set(qs.map(q=>q.subject)).size,5,`${i}: ${qs.map(q=>`${q.id}=${q.subject}`).join(', ')}`);
     assert.equal(new Set(qs.map(q=>q.type)).size,2);
     assert.ok(qs.every(q=>q.difficulty&&!q.reviewOnly));ids.push(...qs.map(q=>q.id));
   }
-  assert.equal(new Set(ids).size,285);assert.deepEqual(questionsForDate('2027-01-14'),questionsForDate('2026-11-18'));
+  assert.equal(new Set(ids).size,285);assert.deepEqual(questionsForDate('2027-01-14','v2'),questionsForDate('2026-11-18','v2'));
+});
+test('full-PYQ edition rotates through every unique question before final padding repeats',()=>{
+  const ids:string[]=[];
+  for(let i=0;i<451;i++){
+    const qs=questionsForDate(addDays('2026-11-19',i));
+    assert.equal(new Set(qs.map(q=>q.subject)).size,5,`${i}: ${qs.map(q=>`${q.id}=${q.subject}`).join(', ')}`);
+    assert.ok(qs.some(q=>!q.reviewOnly),`${i}: all five questions are read-only`);
+    ids.push(...qs.map(q=>q.id));
+  }
+  assert.equal(ids.length,2255);assert.equal(new Set(ids.slice(0,2251)).size,2251);
+  assert.deepEqual(new Set(ids.slice(0,2251)),new Set(bank.map(q=>q.id)));
+  assert.equal(new Set(ids.slice(2251)).size,4);
+  assert.ok(ids.slice(2251).every(id=>ids.slice(0,2251).includes(id)));
+  assert.deepEqual(questionsForDate(addDays('2026-11-19',451)),questionsForDate('2026-11-19'));
+  const date=Array.from({length:451},(_,i)=>addDays('2026-11-19',i)).find(d=>questionsForDate(d).some(q=>q.reviewOnly))!;
+  const qs=questionsForDate(date),p=finish(emptyProgress(at(date),'Asia/Kolkata'),date),record=p.days[date];
+  assert.equal(isComplete(record),true);assert.equal(scoredCount(record),qs.filter(q=>!q.reviewOnly).length);
+  assert.equal(scoreDay(record),scoredCount(record));
+  assert.ok(qs.filter(q=>q.reviewOnly).every(q=>record.attempts[q.id].submitted&&record.attempts[q.id].selected===null));
 });
 test('a legacy same-date record keeps its original questions, answers and share score',()=>{
   const date='2026-11-18',now=at(date),p=emptyProgress(now,'Asia/Kolkata');

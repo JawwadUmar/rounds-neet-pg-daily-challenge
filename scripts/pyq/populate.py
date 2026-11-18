@@ -41,18 +41,21 @@ for r in raw:
     if id_ in choices:
         assert not entry.get("reviewOnly"), id_
         entry.update(difficulty=choices[id_]["level"],topic=choices[id_]["topic"])
-        daily[year][subject].append(entry)
         scores[subject]+=1
     else:
-        library[year][subject].append(entry)
+        # Every imported paper item joins the future daily rotation. Keep an
+        # explicit estimate marker where no curated difficulty is available.
+        entry.update(difficulty="Medium",difficultyEstimated=True,topic=subject)
+    daily[year][subject].append(entry)
 assert len(raw)==2061 and len(images)==494 and sum(map(len,images.values()))==495
-assert len(scores)==19 and set(scores.values())=={5} and sum(scores.values())==len(choices)
+assert len(scores)==19 and set(scores.values())=={5} and sum(scores.values())==len(choices)==95
 dump = lambda value:json.dumps(value, ensure_ascii=False, indent=2)
 OUT.mkdir(exist_ok=True,parents=True)
 header = '// Generated from the supplied edition by scripts/pyq/populate.py.\n'
 daily_data = ',\n'.join(f'  ...readPaper({year}, {dump(groups)})' for year,groups in daily.items())
 (OUT/'daily.ts').write_text(header+"import { readPaper } from './paper';\n\nexport const dailyPapers = [\n"+daily_data+"\n];\n",encoding='utf8')
-for year,groups in library.items():
+for year in ranges:
+    groups=library[int(year)]
     (OUT/f'{year}.ts').write_text(header+"import { readPaper } from './paper';\nimport { dailyPapers } from './daily';\n\n"
         +f"const entries = readPaper({year}, {dump(groups)});\n"
         +f"export default [...entries, ...dailyPapers.filter(q => q.examYear === {year})].sort((a, b) => a.number! - b.number!);\n",encoding='utf8')
@@ -77,4 +80,4 @@ for subject, years in sorted(subject_years.items()):
 (OUT/'subject-index.ts').write_text(header+"import type { Subject } from '../types';\nimport type { PaperYear } from './index';\n"
     +'\n'.join(imports)+'\n\nexport const subjectIndex: Record<Subject, Record<PaperYear, number[][]>> = {\n'
     +',\n'.join(registry)+'\n};\n',encoding='utf8')
-print(f"{len(raw)} year-indexed questions, {len(choices)} curated for daily use, {sum(map(len,images.values()))} figures")
+print(f"{len(raw)} year-indexed and daily questions, {len(choices)} curated difficulty ratings, {sum(map(len,images.values()))} figures")

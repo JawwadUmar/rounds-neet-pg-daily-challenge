@@ -8,7 +8,9 @@ const {fullBank,bank,practiceBank}=await import('../.cache/bank.mjs');
 const all=await fullBank();
 const counts={2018:296,2019:293,2020:300,2021:197,2022:199,2023:197,2024:379,2025:200};
 assert.equal(all.length,2251);
+assert.equal(bank.length,2251);
 assert.equal(new Set(all.map(q=>q.id)).size,all.length);
+assert.equal(new Set(bank.map(q=>q.id)).size,bank.length);
 const subjects=new Set(practiceBank.map(q=>q.subject));
 assert.equal(subjects.size,19);
 const existing=new Set();
@@ -23,9 +25,8 @@ for(const q of practiceBank) {
 }
 for(const subject of subjects){
   assert.equal(practiceBank.filter(q=>q.subject===subject).length,10);
-  assert.equal(bank.filter(q=>q.subject===subject&&q.type==='PYQ').length,5);
 }
-assert.ok(bank.every(q=>['Medium','Hard'].includes(q.difficulty)&&!q.reviewOnly));
+assert.ok(bank.every(q=>['Medium','Hard'].includes(q.difficulty)));
 const linked=new Set();
 for(const [year,count] of Object.entries(counts)) {
   const questions=all.filter(q=>q.examYear===+year);
@@ -50,11 +51,21 @@ for(const [year,count] of Object.entries(counts)) {
 }
 assert.equal(linked.size,495);
 const mixed=JSON.parse(await readFile('src/data/schedule-v2.json','utf8'));
+const full=JSON.parse(await readFile('src/data/schedule-v3.json','utf8'));
 const dailyPdf=bank.filter(q=>q.examYear!==null);
 const dailyPdfIds=new Set(dailyPdf.map(q=>q.id));
-assert.equal(dailyPdf.length,95);
+assert.equal(dailyPdf.length,2061);
 assert.equal(dailyPdfIds.size,dailyPdf.length);
-assert.equal(dailyPdf.filter(q=>!mixed.ids.includes(q.id)).length,0);
+assert.equal(dailyPdf.filter(q=>!full.ids.slice(0,2251).includes(q.id)).length,0);
+assert.equal(full.ids.length,full.cycleDays*5);
+assert.equal(full.ids.length,2255);
+assert.equal(new Set(full.ids.slice(0,2251)).size,2251);
+assert.deepEqual(new Set(full.ids.slice(0,2251)),new Set(bank.map(q=>q.id)));
+assert.equal(new Set(full.ids.slice(2251)).size,4);
+assert.ok(full.ids.slice(2251).every(id=>new Set(full.ids.slice(0,2251)).has(id)));
 assert.equal(mixed.ids.filter(id=>dailyPdfIds.has(id)).length,95);
-for(const subject of subjects)assert.equal(dailyPdf.filter(q=>q.subject===subject).length,5,subject);
-console.log('Passed: 2,061 paired paper entries, 190 original questions, 19 subjects, 495 linked figures, 95 scheduled PDF daily questions and 285 qualified daily entries.');
+assert.ok(dailyPdf.every(q=>['Medium','Hard'].includes(q.difficulty)));
+assert.equal(dailyPdf.filter(q=>q.difficultyEstimated).length,1966);
+assert.equal(dailyPdf.filter(q=>!q.difficultyEstimated).length,95);
+assert.ok(dailyPdf.filter(q=>q.difficultyEstimated).every(q=>q.difficulty==='Medium'));
+console.log('Passed: 2,061 paired paper entries, 190 original questions, 19 subjects, 495 linked figures and a 451-day rotation covering all 2,251 unique questions before its final-day padding.');

@@ -33,6 +33,7 @@ interface Props {
   submit: () => void;
   explanation: boolean;
   setExplanation: (open:boolean) => void;
+  dailyChallenge?: boolean;
   bookmark?: () => void;
   bookmarked?: boolean;
 }
@@ -47,14 +48,14 @@ export function focusQuestion() {
   });
 }
 
-export function QuestionReader({question:q,attempt,busy,label,select,submit,explanation,setExplanation,bookmark,bookmarked}:Props) {
+export function QuestionReader({question:q,attempt,busy,label,select,submit,explanation,setExplanation,dailyChallenge=false,bookmark,bookmarked}:Props) {
   const region = useId();
   const correct = attempt.selected===q.correct;
   const locked = attempt.submitted;
   const distractors = LETTERS.filter(l=>l!==q.correct && q.optionExplanations[l]);
   return <article className="quiz-body">
-    <div className="reader-top"><span className="subject-tag">{q.subject}</span><span className="reader-tools">
-      {q.difficulty && <span className="difficulty">{q.difficulty}</span>}
+    <div className="reader-top"><span className="reader-identifiers"><span className="subject-tag">{q.subject}</span>{q.examYear && <span className="source-tag">PYQ {q.examYear}</span>}</span><span className="reader-tools">
+      {q.difficulty && <span className="difficulty" aria-label={q.difficultyEstimated?`Estimated difficulty: ${q.difficulty}`:`Difficulty: ${q.difficulty}`} title={q.difficultyEstimated?'Estimated difficulty':'Difficulty'}>{q.difficulty}{q.difficultyEstimated?' · est.':''}</span>}
       {bookmark && <button className="icon-button" onClick={bookmark} aria-label={bookmarked?'Remove question from saved review':'Save question for review'} aria-pressed={!!bookmarked}><Bookmark size={18} fill={bookmarked?'currentColor':'none'}/></button>}
     </span></div>
     <h2 className="question-statement" tabIndex={-1}>{q.statement}</h2>
@@ -71,10 +72,11 @@ export function QuestionReader({question:q,attempt,busy,label,select,submit,expl
         </label>;
       })}
     </fieldset>
-    {locked && <div role="status" className={`answer-feedback ${correct?'correct':'incorrect'}`}>{correct?<CheckCircle2 size={18}/>:<BookOpen size={18}/>}<div><strong>{correct?'Correct answer':'Incorrect answer'}</strong><p>{q.answerText??`${q.correct}. ${q.options[q.correct]}`}</p></div></div>}
+    {locked && <div role="status" className={`answer-feedback ${q.reviewOnly?'reviewed':correct?'correct':'incorrect'}`}>{q.reviewOnly?<BookOpen size={18}/>:correct?<CheckCircle2 size={18}/>:<BookOpen size={18}/>}<div><strong>{q.reviewOnly?'Read-only item':correct?'Correct answer':'Incorrect answer'}</strong><p>{q.reviewOnly?'This source item is not scored. Open the solution to review its printed key.':q.answerText??`${q.correct}. ${q.options[q.correct]}`}</p></div></div>}
     <div className="answer-actions">
       <span className="saved-hint"><LockKeyhole size={13}/>{q.reviewOnly?'Read-only question':locked?'Answer locked':'Choose one answer'}</span>
-      {locked||q.reviewOnly ? <button className="button secondary" aria-expanded={explanation} aria-controls={region} onClick={()=>setExplanation(!explanation)}><BookOpen size={16}/>{explanation?'Hide explanation':q.reviewOnly?'Read solution':'Explanation'}<ChevronDown className={explanation?'up':''} size={15}/></button>
+      {dailyChallenge&&q.reviewOnly&&!locked ? <button className="button primary" disabled={busy} onClick={submit}>Continue · not scored<ArrowRight size={15}/></button>
+      : locked||q.reviewOnly ? <button className="button secondary" aria-expanded={explanation} aria-controls={region} onClick={()=>setExplanation(!explanation)}><BookOpen size={16}/>{explanation?'Hide explanation':q.reviewOnly?'Read solution':'Explanation'}<ChevronDown className={explanation?'up':''} size={15}/></button>
       : <button className="button primary" disabled={!attempt.selected||busy} onClick={submit}>Confirm answer<ArrowRight size={15}/></button>}
     </div>
     {(locked||q.reviewOnly)&&explanation && <section id={region} className="explanation">

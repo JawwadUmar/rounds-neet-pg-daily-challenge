@@ -2,6 +2,7 @@ import { test, expect, chromium, type Page } from '@playwright/test';
 import { mkdtemp } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { questionsForDate } from '../../src/core/schedule';
+import { addDays } from '../../src/core/dates';
 const DATE='2026-11-18';
 async function boot(page:Page) {
   await page.clock.install({time:new Date('2026-11-18T06:00:00Z')});
@@ -24,6 +25,20 @@ async function finish(page:Page,date=DATE,correct=true) {
 async function profile(page:Page) {
   return page.evaluate(()=>new Promise<any>((resolve,reject)=>{const request=indexedDB.open('neet-pg-daily-v1',1);request.onsuccess=()=>{const db=request.result;const get=db.transaction('profile').objectStore('profile').get('main');get.onsuccess=()=>{resolve(get.result);db.close();};get.onerror=()=>reject(get.error);};request.onerror=()=>reject(request.error);}));
 }
+test('full-PYQ challenges label exam year and difficulty, and continue unscored source items',async({page})=>{
+  const date=Array.from({length:451},(_,i)=>addDays('2026-11-19',i)).find(day=>{
+    const qs=questionsForDate(day);return !!qs[0].examYear&&qs.some(q=>q.reviewOnly);
+  })!;
+  const qs=questionsForDate(date),first=qs[0],reviewIndex=qs.findIndex(q=>q.reviewOnly);
+  await page.clock.install({time:new Date(`${date}T06:00:00Z`)});await page.goto('/');
+  await expect(page.locator('.source-tag')).toHaveText(`PYQ ${first.examYear}`);
+  await expect(page.locator('.difficulty')).toHaveText(first.difficultyEstimated?`${first.difficulty} · est.`:first.difficulty!);
+  for(let i=0;i<reviewIndex;i++)await page.getByRole('button',{name:'Next question',exact:true}).click();
+  await page.getByRole('button',{name:'Continue · not scored'}).click();
+  await expect(page.locator('.answer-feedback')).toContainText('Read-only item');
+  await page.getByRole('button',{name:'Read solution'}).click();
+  await expect(page.locator('.solution-prose')).toBeVisible();
+});
 test('dashboard loads without errors, remote runtime requests or accessibility label gaps',async({page})=>{
   const errors:string[]=[],remote:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(!r.url().startsWith('http://127.0.0.1:4173'))remote.push(r.url());});
   await boot(page);await expect(page.getByRole('radio')).toHaveCount(4);await expect(page.getByRole('button',{name:'Next challenge',exact:true})).toBeDisabled();

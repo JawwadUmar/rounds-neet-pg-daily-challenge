@@ -17,6 +17,7 @@ export interface Question {
   subject: Subject;
   topic: string;
   difficulty: 'Medium' | 'Hard' | null;
+  difficultyEstimated?: boolean;
   type: 'Practice' | 'PYQ';
   examYear: number | null;
   provenance: string;

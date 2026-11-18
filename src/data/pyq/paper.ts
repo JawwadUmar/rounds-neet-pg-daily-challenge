@@ -12,6 +12,7 @@ interface Entry {
   imageUnavailable?: boolean;
   reviewOnly?: boolean;
   difficulty?: 'Medium' | 'Hard';
+  difficultyEstimated?: boolean;
   topic?: string;
 }
 

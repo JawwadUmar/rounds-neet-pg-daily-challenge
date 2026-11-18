@@ -1,10 +1,10 @@
 import { formatDay } from './dates';
-import { isComplete, scoreDay, type DailyRecord } from './model';
+import { isComplete, scoreDay, scoredCount, type DailyRecord } from './model';
 import { questionsForDate } from './schedule';
 export function resultText(day: DailyRecord, currentStreak: number): string {
   if (!isComplete(day)) throw new Error('Complete all five questions to share your result.');
-  const squares = questionsForDate(day.date,day.version).map(q => day.attempts[q.id].selected === q.correct ? '🟩' : '🟥').join('');
-  return `NEET-PG Daily Challenge\n📅 ${formatDay(day.date)}\n🎯 Score: ${scoreDay(day)}/5\n✅ Daily Challenge Completed!${!day.streakEligible ? ' (Catch-up / no streak credit)' : ''}\n\n${squares}\n\n🔥 ${currentStreak}-Day Streak\n\nPreparing for NEET-PG 2027!`;
+  const squares = questionsForDate(day.date,day.version).map(q => q.reviewOnly ? '⬜' : day.attempts[q.id].selected === q.correct ? '🟩' : '🟥').join('');
+  return `NEET-PG Daily Challenge\n📅 ${formatDay(day.date)}\n🎯 Score: ${scoreDay(day)}/${scoredCount(day)}\n✅ Daily Challenge Completed!${!day.streakEligible ? ' (Catch-up / no streak credit)' : ''}\n\n${squares}${scoredCount(day)<5?' (⬜ read-only, not scored)':''}\n\n🔥 ${currentStreak}-Day Streak\n\nPreparing for NEET-PG 2027!`;
 }
 export async function copyText(value: string): Promise<boolean> {
   try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(value); return true; } } catch { /* try legacy copy */ }

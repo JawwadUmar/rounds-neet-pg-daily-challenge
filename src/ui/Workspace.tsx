@@ -3,7 +3,7 @@ import { ArrowDownToLine, ArrowRight, BookOpen, Check, ChevronRight, Clock3, Dat
 import { byId } from '../data/bank';
 import { SUBJECTS } from '../data/types';
 import { addDays, ARCHIVE_START, formatDay, navigable } from '../core/dates';
-import { isComplete, scoreDay, submittedCount, type Action, type Progress } from '../core/model';
+import { isComplete, scoreDay, scoredCount, submittedCount, type Action, type Progress } from '../core/model';
 import { questionsForDate } from '../core/schedule';
 import { statistics } from '../core/stats';
 import { downloadFile, type ProgressStore } from '../core/storage';
@@ -25,7 +25,7 @@ export function Archive({today,progress,openDate}:{today:string;progress:Progres
   return <div className="page-enter"><header className="page-heading"><p className="section-label"><FolderArchive size={15}/>Study calendar</p><h1>Challenge <em>archive.</em></h1><p>Complete a past set or revisit your answers.</p></header>
     <section className="panel archive-panel"><div className="catalogue-head"><h2>Daily challenges</h2><label className="month-picker">Month<input type="month" aria-label="Archive month" value={month} min={ARCHIVE_START.slice(0,7)} max={today.slice(0,7)} onChange={e=>{if(e.target.value>=ARCHIVE_START.slice(0,7)&&e.target.value<=today.slice(0,7))setMonth(e.target.value);}}/></label></div>
       <div>{dates.map(d=>{const saved=progress.days[d],done=isComplete(saved),count=submittedCount(saved);
-        return <button className="archive-row" key={d} onClick={()=>openDate(d)}><span className={`archive-day ${done?'complete':''}`}>{done?<Check size={18}/>:Number(d.slice(-2))}</span><span className="archive-title"><strong>{formatDay(d,{weekday:'long',month:'long',day:'numeric'})}</strong><small>{questionsForDate(d,saved?.version).map(q=>q.subject).join(' · ')}</small></span><span className="archive-status">{done?`${scoreDay(saved)} / 5`:count?`${count}/5 attempted`:'Not started'}</span><ChevronRight size={17}/></button>;
+        return <button className="archive-row" key={d} onClick={()=>openDate(d)}><span className={`archive-day ${done?'complete':''}`}>{done?<Check size={18}/>:Number(d.slice(-2))}</span><span className="archive-title"><strong>{formatDay(d,{weekday:'long',month:'long',day:'numeric'})}</strong><small>{questionsForDate(d,saved?.version).map(q=>q.subject).join(' · ')}</small></span><span className="archive-status">{done?`${scoreDay(saved)} / ${scoredCount(saved)}`:count?`${count}/5 attempted`:'Not started'}</span><ChevronRight size={17}/></button>;
       })}</div></section></div>;
 }
 

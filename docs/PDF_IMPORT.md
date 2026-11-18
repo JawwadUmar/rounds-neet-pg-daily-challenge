@@ -30,7 +30,7 @@ The image extractor uses the physical column position and logical question order
 
 The TypeScript entry point for a year loads the complete paper in printed question order. Annual data is grouped by the printed subject headings, using the app’s canonical subject names. The 2019 miscellaneous ECG items are indexed under General Medicine. The 19 files in `src/data/pyq/subjects/` provide cross-year subject ranges. Daily-eligible entries live in a shared TypeScript module so their text is stored once and the daily screen can load independently of the full papers.
 
-All imported entries retain their four choices, answer letter, keyed answer text and solution. Missing per-option commentary is never synthesized. The daily selection includes five curated items per subject alongside all 190 original practice questions. Only the app’s difficulty estimate and study-topic classification are editorial. The library and daily answers are saved independently.
+All imported entries retain their four choices, answer letter, keyed answer text and solution. Missing per-option commentary is never synthesized. Since 19 November 2026, the daily rotation includes all 2,061 PDF questions alongside the 190 original practice questions; its frozen schedule covers all 2,251 unique items before final-day padding repeats. The 95 curated PDF entries retain their editorial difficulty ratings; remaining entries are marked with an estimated Medium level. Source-defective entries remain read-only and do not affect the scored total. The library and daily answers are saved independently.
 
 ## Reproduction
 

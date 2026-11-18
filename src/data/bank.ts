@@ -20,7 +20,7 @@ import { anesthesia } from './anesthesia';
 import type { Question } from './types';
 import { dailyPapers } from './pyq/daily';
 import { loadPapers } from './pyq';
-export const BANK_VERSION = 'v2' as const;
+export const BANK_VERSION = 'v3' as const;
 export const practiceBank: readonly Question[] = Object.freeze([
   ...anatomy, ...physiology, ...biochemistry, ...pathology, ...pharmacology,
   ...microbiology, ...forensic, ...psm, ...ent, ...ophthalmology,

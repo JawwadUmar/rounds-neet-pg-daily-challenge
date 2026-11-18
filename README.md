@@ -41,7 +41,7 @@ Do not open `index.html` directly with `file://`; browser module, storage and cl
 
 The full bank contains **2,251 questions**. The eight annual papers contribute 2,061 numbered entries and 495 illustrations from the supplied MEDINK compilation. The original 190 practice questions retain their IDs, answer order and learning points. The paper entries retain the publication’s wording, answer letters and explanations. They carry their compilation year in the data. Official exam wording and clinical accuracy have not been independently authenticated.
 
-Of the paper entries, 95 have editorial medium or hard ratings for daily use. All 2,061 are accessible in the library, including short recall items and read-only questions with known defects. The interface keeps source information in the underlying dataset. See [PDF import and verification](docs/PDF_IMPORT.md) and the [original practice-bank research](docs/QUESTION_SOURCING.md).
+All 2,061 paper entries are included in the daily rotation and library. The 95 curated entries retain their editorial medium or hard ratings; other paper entries receive a marked estimated Medium rating. Source-defective items also enter the daily rotation as read-only, unscored questions so their printed keys are not treated as reliable. Every paper question is labeled with its year. See [PDF import and verification](docs/PDF_IMPORT.md) and the [original practice-bank research](docs/QUESTION_SOURCING.md).
 
 ## Date selection and historical reproducibility
 
@@ -49,7 +49,8 @@ Of the paper entries, 95 have editorial medium or hard ratings for daily use. Al
 - `src/data/schedule-v1.json` is an immutable 190-ID manifest. Each day consumes five consecutive slots in a 38-day cycle. Each set contains five different subjects. Every question appears exactly once per cycle, so no question repeats in any consecutive 38-day window.
 - Same date and bank edition always select the same ordered questions, independently of session, browser, timezone travel, file order or user progress. The schedule depends on a calendar date, not on the time of the request.
 - On **18 November 2026**, new challenges enter the mixed edition in `src/data/schedule-v2.json`. It cycles through 285 qualified items, with five different subjects and both paper and original questions each day. Previously saved sets keep their recorded version. An upgrade also preserves the last set opened in the original app when the user had only read it.
-- The freeze scripts document the seeded construction. Preserve both historical manifests and their IDs. A subsequent edition needs its own effective date.
+- On **19 November 2026**, the full-PYQ edition in `src/data/schedule-v3.json` starts a 451-day rotation over all 2,061 PDF questions and 190 original questions. Challenges retain five different subjects. Every unique item appears before the final day’s four schedule-padding repeats; previously saved sets keep their recorded version.
+- The freeze scripts document the seeded construction. Preserve all historical manifests and their IDs. A subsequent edition needs its own effective date.
 - Practice questions retain their deterministic ordering. Imported papers retain the exact A–D positions printed in the book.
 - The interface and attempt engine reject navigation/submission beyond the study day or before the archive boundary. Existing historical challenges stay accessible indefinitely as the finite schedule repeats.
 
@@ -80,7 +81,7 @@ Every completion records its challenge date, actual timestamp and actual study-c
 | Paper data and 19 subject indexes | `src/data/pyq/` |
 | Reproducible PDF import | `scripts/pyq/`, `scripts/extract-pyq-images.py` |
 | Extracted figures | `public/assets/images/pyq/{year}/` |
-| Immutable daily schedules | `src/data/schedule-v1.json`, `src/data/schedule-v2.json`, `src/core/schedule.ts` |
+| Immutable daily schedules | `src/data/schedule-v1.json`, `src/data/schedule-v2.json`, `src/data/schedule-v3.json`, `src/core/schedule.ts` |
 | Study-calendar dates | `src/core/dates.ts` |
 | Attempts, locking, validation and clocks | `src/core/model.ts` |
 | Streaks and metrics | `src/core/stats.ts` |

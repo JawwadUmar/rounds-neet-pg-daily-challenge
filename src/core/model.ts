@@ -10,20 +10,22 @@ export interface Progress {
   schemaVersion: 1; revision: number; createdAt: string; updatedAt: string; maxSeenAt: string;
   preferences: { theme: 'light' | 'dark'; timeZone: string };
   days: Record<string, DailyRecord>; bookmarks: string[]; study?: Record<string, Attempt>;
-  scheduleEdition?: 'v2';
+  scheduleEdition?: 'v2' | 'v3';
 }
 const letters = ['A', 'B', 'C', 'D'];
 const timestamp = (v: unknown): v is string => typeof v === 'string' && Number.isFinite(Date.parse(v)) && new Date(v).toISOString() === v;
 export function emptyProgress(now = new Date(), timeZone = browserZone()): Progress {
   const iso = now.toISOString();
-  return { schemaVersion: 1, scheduleEdition:'v2', revision: 0, createdAt: iso, updatedAt: iso, maxSeenAt: iso, preferences: { theme: 'light', timeZone }, days: {}, bookmarks: [] };
+  return { schemaVersion: 1, scheduleEdition:'v3', revision: 0, createdAt: iso, updatedAt: iso, maxSeenAt: iso, preferences: { theme: 'light', timeZone }, days: {}, bookmarks: [] };
 }
 export function createDay(day: string, version=versionForDate(day)): DailyRecord {
   const questionIds = questionsForDate(day,version).map(q => q.id);
   return { date: day, version, questionIds, attempts: Object.fromEntries(questionIds.map(id => [id, { selected: null, submitted: false, submittedAt: null }])), completedAt: null, completedDay: null, streakEligible: false };
 }
 export function submittedCount(day?: DailyRecord): number { return day ? day.questionIds.filter(id => day.attempts[id]?.submitted).length : 0; }
-export function scoreDay(day: DailyRecord): number { return questionsForDate(day.date,day.version).filter(q => day.attempts[q.id]?.submitted && day.attempts[q.id].selected === q.correct).length; }
+export function scoreDay(day: DailyRecord): number { return questionsForDate(day.date,day.version).filter(q => !q.reviewOnly && day.attempts[q.id]?.submitted && day.attempts[q.id].selected === q.correct).length; }
+export function scoredCount(day: DailyRecord): number { return questionsForDate(day.date,day.version).filter(q => !q.reviewOnly).length; }
+export function scoredAttempted(day: DailyRecord): number { return questionsForDate(day.date,day.version).filter(q => !q.reviewOnly && day.attempts[q.id]?.submitted).length; }
 export function isComplete(day?: DailyRecord): boolean { return !!day?.completedAt && submittedCount(day) === 5; }
 export function clockIssue(progress: Progress, now: Date, baseline?: { wall: number; mono: number }, monotonic?: number): string | null {
   if (now.getTime() < Date.parse(progress.maxSeenAt) - 120_000) return 'The device clock moved backwards. Check your date and time. New completions will be saved without streak credit while the clock is inconsistent.';
@@ -65,11 +67,13 @@ export function applyAction(progress: Progress, action: Action, now = new Date()
     const attempt = day.attempts[action.id];
     if (!attempt || !day.questionIds.includes(action.id)) throw new Error('Question does not belong to this challenge.');
     if (attempt.submitted) return progress;
+    const question = questionsForDate(action.date,day.version).find(q=>q.id===action.id)!;
     if (action.type === 'select') {
+      if (question.reviewOnly) throw new Error('This source item is read-only.');
       if (!action.selected || !letters.includes(action.selected)) throw new Error('Select a valid answer.');
       attempt.selected = action.selected;
     } else {
-      if (!attempt.selected) throw new Error('Choose an answer before confirming.');
+      if (!question.reviewOnly && !attempt.selected) throw new Error('Choose an answer before confirming.');
       attempt.submitted = true;
       attempt.submittedAt = now.toISOString();
       if (submittedCount(day) === 5 && !day.completedAt) {
@@ -94,9 +98,10 @@ export function validateProgress(value: unknown): Progress {
     if (!isDay(date) || date !== d.date || typeof d.version !== 'string' || !Array.isArray(d.questionIds)) throw new Error('Invalid challenge date/version.');
     if (JSON.stringify(d.questionIds) !== JSON.stringify(questionsForDate(date,d.version).map(q => q.id))) throw new Error('Saved challenge does not match its frozen schedule.');
     if (!d.attempts || Object.keys(d.attempts).length !== 5) throw new Error('Invalid attempt records.');
+    const scheduled = questionsForDate(date,d.version);
     for (const id of d.questionIds) {
       const a = d.attempts[id];
-      if (!validAttempt(a)) throw new Error('Invalid submitted answer.');
+      if (!validAttempt(a,scheduled.find(q=>q.id===id)?.reviewOnly)) throw new Error('Invalid submitted answer.');
     }
     const complete = submittedCount(d) === 5;
     if (complete !== !!d.completedAt || typeof d.streakEligible !== 'boolean') throw new Error('Inconsistent completion record.');
@@ -109,13 +114,13 @@ export function validateProgress(value: unknown): Progress {
   }
   if (p.study !== undefined && (!p.study || Array.isArray(p.study) || typeof p.study !== 'object' ||
       Object.entries(p.study).some(([id,a])=>!paperId(id) || !validAttempt(a)))) throw new Error('Invalid library attempts.');
-  if(p.scheduleEdition!==undefined && p.scheduleEdition!=='v2')throw new Error('Unsupported schedule edition.');
+  if(p.scheduleEdition!==undefined && p.scheduleEdition!=='v2' && p.scheduleEdition!=='v3')throw new Error('Unsupported schedule edition.');
   const restored=structuredClone(p);
   if(restored.scheduleEdition===undefined){
     // The old app recorded its last visit even when the user only read the day's first question.
     const lastVisit=dayInZone(new Date(restored.maxSeenAt),restored.preferences.timeZone);
-    if(versionForDate(lastVisit)==='v2')restored.days[lastVisit]??=createDay(lastVisit,'v1');
-    restored.scheduleEdition='v2';
+    if(versionForDate(lastVisit)!=='v1')restored.days[lastVisit]??=createDay(lastVisit,'v1');
+    restored.scheduleEdition='v3';
   }
   return restored;
 }
@@ -125,9 +130,9 @@ function paperId(id:string):boolean {
   const match = /^pyq-(\d{4})-([1-9]\d{0,2})$/.exec(id);
   return !!match && Number(match[2]) <= paperSizes[match[1]];
 }
-function validAttempt(a:Attempt):boolean {
+function validAttempt(a:Attempt,reviewOnly=false):boolean {
   return !!a && (a.selected===null || letters.includes(a.selected)) && typeof a.submitted==='boolean' &&
-    (a.submitted ? !!a.selected && timestamp(a.submittedAt) : a.submittedAt===null);
+    (a.submitted ? (reviewOnly ? a.selected===null : !!a.selected) && timestamp(a.submittedAt) : a.submittedAt===null);
 }
 
 export function mergeBackup(current: Progress, raw: unknown, now = new Date()): Progress {
