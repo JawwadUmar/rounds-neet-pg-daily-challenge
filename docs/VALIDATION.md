@@ -1,5 +1,15 @@
 # Validation record
 
+## Illustrated paper edition
+
+The final `npm run validate:bank` verifies 2,251 distinct question IDs, eight complete annual question-number sequences, nineteen subjects per paper, the four choices and printed keys, the two physical page locators, and all 495 linked figure files. The daily pool contains 285 qualified entries. The source text audit, including the known gaps in the publication, is described in [PDF import and verification](PDF_IMPORT.md).
+
+`npm test` passes 23 domain tests. The added checks cover the complete mixed schedule, old-edition attempts and scores, migration of a previously viewed legacy day, independent library attempts and backups, and equivalence of the nineteen subject indexes to the complete annual records.
+
+The Chromium suite passes 25 browser tests. The additions exercise year and subject selection, search, pagination, read-only exceptions, saved library answers, single- and two-figure questions, lightbox zoom, Escape and focus restoration. They also check the requested UI removals. Desktop and mobile screenshots were inspected in light and dark themes. The production build passes TypeScript checking and bundles the year files and fonts as relative assets.
+
+## Original practice edition
+
 Date: 18 November 2026.
 
 ## Question-bank gate

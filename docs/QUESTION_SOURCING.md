@@ -1,6 +1,6 @@
-# Question research and editorial policy
+# Original practice-bank research
 
-Research date: 18 November 2026. Bank edition: `v1`.
+This is the research record for the original 190 practice questions in edition `v1`, dated 18 November 2026. The subsequent supplied-paper import, its source qualifications and its verification are documented in [PDF import and verification](PDF_IMPORT.md).
 
 ## Sources assessed
 

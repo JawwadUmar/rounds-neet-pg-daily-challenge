@@ -18,11 +18,15 @@ import { psychiatry } from './psychiatry';
 import { radiology } from './radiology';
 import { anesthesia } from './anesthesia';
 import type { Question } from './types';
-export const BANK_VERSION = 'v1' as const;
-export const bank: readonly Question[] = Object.freeze([
+import { dailyPapers } from './pyq/daily';
+import { loadPapers } from './pyq';
+export const BANK_VERSION = 'v2' as const;
+export const practiceBank: readonly Question[] = Object.freeze([
   ...anatomy, ...physiology, ...biochemistry, ...pathology, ...pharmacology,
   ...microbiology, ...forensic, ...psm, ...ent, ...ophthalmology,
   ...medicine, ...surgery, ...obg, ...pediatrics, ...orthopedics,
   ...dermatology, ...psychiatry, ...radiology, ...anesthesia,
 ]);
+export const bank: readonly Question[] = Object.freeze([...practiceBank, ...dailyPapers]);
+export async function fullBank(): Promise<Question[]> { return [...practiceBank, ...await loadPapers()]; }
 export const byId = new Map(bank.map(question => [question.id, question]));

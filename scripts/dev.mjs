@@ -1,10 +1,30 @@
+import { createServer } from 'node:net';
 import { context } from 'esbuild';
-import { mkdir, copyFile, cp } from 'node:fs/promises';
-await mkdir('dist',{recursive:true});
-await copyFile('index.html','dist/index.html');
-await cp('public','dist',{recursive:true});
-const ctx = await context({ entryPoints: ['src/main.tsx'], outfile: 'dist/app.js', bundle: true, format: 'esm', target: ['es2022'], jsx: 'automatic', sourcemap: true, define: { 'process.env.NODE_ENV': '"development"' } });
+import { copyStatic, bundleOptions } from './bundle.mjs';
+
+function isPortAvailable(port, host = '127.0.0.1') {
+  return new Promise(resolve => {
+    const s = createServer();
+    s.once('error', () => resolve(false));
+    s.listen(port, host, () => s.close(() => resolve(true)));
+  });
+}
+
+async function resolvePort(preferredPort, host = '127.0.0.1') {
+  if (process.env.PORT) return Number(process.env.PORT);
+  let port = preferredPort;
+  while (!(await isPortAvailable(port, host))) {
+    console.warn(`Port ${port} is occupied by another process, trying ${port + 1}...`);
+    port++;
+  }
+  return port;
+}
+
+const outdir = '.cache/preview';
+await copyStatic(outdir);
+const ctx = await context(bundleOptions(outdir, false));
 await ctx.watch();
-const server = await ctx.serve({ servedir: 'dist', host: '127.0.0.1', port: Number(process.env.PORT || 4173) });
+const port = await resolvePort(4173);
+const server = await ctx.serve({ servedir: outdir, host: '127.0.0.1', port });
 console.log(`Local: http://127.0.0.1:${server.port}`);
-for (const signal of ['SIGINT','SIGTERM']) process.on(signal, async () => { await ctx.dispose(); process.exit(0); });
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => { await ctx.dispose(); process.exit(0); });

@@ -1,4 +1,6 @@
-# Implementation plan
+# Original implementation plan
+
+This plan describes the initial practice edition. The subsequent paper import and mixed daily edition are documented in [PDF import and verification](PDF_IMPORT.md).
 
 1. Research provenance and assess public datasets. Author and reference 190 distinct medium/hard clinical and applied questions, ten per subject. Validate all metadata, answer keys, distractor explanations and coverage before any UI work.
 2. Implement pure TypeScript domain modules: immutable question bank and schedule, calendar dates, attempts, completion eligibility, streaks and spoiler-free sharing. Test deterministic historical selection, no duplicates, no repeat for 38 days, midnight, time zones, missed days and catch-up.

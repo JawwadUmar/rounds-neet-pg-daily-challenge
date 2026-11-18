@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { addDays, ARCHIVE_START, calendarMonth, formatDay, navigable, shiftMonth } from '../core/dates';
 import { isComplete, submittedCount, type Progress } from '../core/model';
 
@@ -22,7 +22,7 @@ export function MonthCalendar({ month, setMonth, today, selected, progress, open
   const cells = calendarMonth(month);
   const completeCount = Object.values(progress.days).filter(d => d.date.startsWith(month) && d.date <= today && isComplete(d)).length;
   return <section className="panel calendar-panel" aria-label="Challenge calendar">
-    <div className="panel-heading"><div><span className="eyebrow">SHOW UP FOR YOURSELF</span><h3>Your consistency</h3></div><span className="calendar-emblem"><Check size={18}/></span></div>
+    <div className="panel-heading"><h3>Study calendar</h3></div>
     <div className="month-navigation"><button className="icon-button" aria-label="Previous calendar month" disabled={month <= ARCHIVE_START.slice(0,7)} onClick={() => setMonth(shiftMonth(month,-1))}><ChevronLeft size={17}/></button><strong>{formatDay(month+'-01',{month:'long',year:'numeric'})}</strong><button className="icon-button" aria-label="Next calendar month" disabled={month >= today.slice(0,7)} onClick={() => setMonth(shiftMonth(month,1))}><ChevronRight size={17}/></button></div>
     <div className="month-grid" role="group" aria-label={formatDay(month+'-01',{month:'long',year:'numeric'})}>
       {['M','T','W','T','F','S','S'].map((day,index)=><span className="weekday" key={index} aria-hidden="true">{day}</span>)}
@@ -34,7 +34,7 @@ export function MonthCalendar({ month, setMonth, today, selected, progress, open
       })}
     </div>
     <div className="calendar-key"><span><i className="swatch completed"/>Completed</span><span><i className="swatch today"/>Today</span></div>
-    <div className="calendar-foot"><strong>{completeCount} {completeCount===1?'day':'days'}</strong> completed this month<span>All five answers make a day count.</span></div>
+    <div className="calendar-foot"><strong>{completeCount} {completeCount===1?'day':'days'}</strong> completed this month</div>
   </section>;
 }
 
@@ -46,11 +46,11 @@ export function ActivityGraph({ today, progress, openDate }: { today: string; pr
   let previousMonth = '';
   const labels = weeks.map(days => { const m=days[0].slice(0,7); const label=m!==previousMonth?formatDay(days[0],{month:'short'}):''; previousMonth=m; return label; });
   return <section className="panel activity-panel" aria-label="Contribution calendar">
-    <div className="activity-heading"><div><h3>A little progress, every day.</h3><p><strong>{count}</strong> completed challenges in the last 26 weeks</p></div><span className="subtle-pill">YOUR STUDY TRAIL</span></div>
+    <div className="activity-heading"><h3>Study activity</h3><p>{count} completed in the last 26 weeks</p></div>
     <div className="activity-scroll"><div className="activity-chart"><div className="activity-row-labels"><span>Mon</span><span>Wed</span><span>Fri</span></div><div className="activity-weeks">{weeks.map((days,week)=><div className="activity-week" key={week}><span className="activity-month">{labels[week]}</span>{days.map(day=>{
       const done=isComplete(progress.days[day]),partial=!done&&submittedCount(progress.days[day])>0;
       return <button key={day} aria-label={`Activity ${formatDay(day)}: ${done?'completed':partial?'in progress':'not completed'}`} disabled={!navigable(day,today)} title={`${formatDay(day)} · ${done?'5/5 completed':`${submittedCount(progress.days[day])}/5 completed`}`} onClick={()=>openDate(day)} className={`activity-cell ${done?'completed':''} ${partial?'partial':''} ${day===today?'today':''}`}/>;
     })}</div>)}</div></div></div>
-    <div className="activity-bottom"><span>Consistency is built one challenge at a time.</span><div><span><i className="swatch"/>Not completed</span><span><i className="swatch completed"/>Completed</span></div></div>
+    <div className="activity-bottom"><span><i className="swatch"/>Not completed</span><span><i className="swatch completed"/>Completed</span></div>
   </section>;
 }

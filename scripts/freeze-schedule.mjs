@@ -4,7 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 const target = new URL('../src/data/schedule-v1.json', import.meta.url);
 try { await readFile(target); throw new Error('v1 is already frozen; create a new date-effective edition instead.'); }
 catch (e) { if (e.code !== 'ENOENT') throw e; }
-const { bank } = await import('../.cache/bank.mjs');
+const { practiceBank: bank } = await import('../.cache/bank.mjs');
 const hash = value => createHash('sha256').update('neet-pg-v1:' + value).digest('hex');
 const subjects = [...new Set(bank.map(q => q.subject))].sort((a,b) => hash(a).localeCompare(hash(b)));
 const groups = new Map(subjects.map(subject => [subject, bank.filter(q => q.subject === subject).sort((a,b) => hash(a.id).localeCompare(hash(b.id))).map(q => q.id)]));

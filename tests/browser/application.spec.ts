@@ -5,7 +5,7 @@ import { questionsForDate } from '../../src/core/schedule';
 const DATE='2026-11-18';
 async function boot(page:Page) {
   await page.clock.install({time:new Date('2026-11-18T06:00:00Z')});
-  await page.goto('/'); await expect(page.getByRole('heading',{name:'Your daily dose of progress.'})).toBeVisible();
+  await page.goto('/'); await expect(page.getByRole('heading',{name:'Daily rounds.'})).toBeVisible();
 }
 async function answer(page:Page,letter='A') {
   await page.locator(`.option:has(input[value="${letter}"])`).click();
@@ -36,7 +36,7 @@ test('unsubmitted selection and locked answers survive refresh and explanation s
   await page.locator('.option:has(input[value="B"])').click();await expect(page.getByRole('button',{name:'Confirm answer'})).toBeEnabled();
   await page.reload();await expect(page.locator('.question-statement')).toHaveText(statement!);await expect(page.locator('input[value="B"]')).toBeChecked();
   await page.getByRole('button',{name:'Confirm answer'}).click();await page.getByRole('button',{name:'Explanation',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Understand the why'})).toBeVisible();await expect(page.locator('.distractors>div')).toHaveCount(3);
+  await expect(page.getByRole('heading',{name:'Solution',exact:true})).toBeVisible();await expect(page.locator('.solution-prose')).toContainText(questionsForDate(DATE)[0].explanation.split('\n')[0]);
   await expect(page.getByRole('radio').first()).toBeDisabled();await page.reload();await expect(page.locator('input[value="B"]')).toBeChecked();await expect(page.getByRole('radio').first()).toBeDisabled();
   const p=await profile(page);expect(p.days[DATE].attempts[questionsForDate(DATE)[0].id].submitted).toBe(true);
 });
@@ -58,7 +58,7 @@ test('incorrect results show red squares and no score is fabricated',async({page
 test('catch-up turns its day green without receiving current streak credit',async({page})=>{
   await boot(page);await page.getByRole('button',{name:'Previous challenge',exact:true}).click();await expect(page.locator('.notice.catchup')).toBeVisible();await finish(page,'2026-11-17');
   const p=await profile(page);expect(p.days['2026-11-17'].completedDay).toBe(DATE);expect(p.days['2026-11-17'].streakEligible).toBe(false);
-  await expect(page.locator('.result-streak>strong')).toHaveText('0-day streak');await expect(page.getByRole('button',{name:'17 Nov 2026, completed',exact:true})).toBeVisible();
+  await expect(page.locator('.result-streak')).toContainText('0-day streak');await expect(page.getByRole('button',{name:'17 Nov 2026, completed',exact:true})).toBeVisible();
 });
 test('future dates and future months are not navigable, archive remains accessible',async({page})=>{
   await boot(page);await expect(page.getByRole('button',{name:'Next calendar month'})).toBeDisabled();
@@ -118,8 +118,8 @@ test('desktop, tablet and mobile layouts have no page overflow and navigation re
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await expect(page.getByRole('button',{name:'Confirm answer'})).toBeVisible();
   }
-  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Open navigation'}).click();await page.getByRole('button',{name:'Challenge archive',exact:true}).click();await expect(page.getByRole('heading',{name:'Make room for a catch-up.'})).toBeVisible();
-  await page.getByRole('button',{name:'Open navigation'}).click();await page.getByRole('button',{name:'Your progress',exact:true}).click();await expect(page.getByRole('heading',{name:'Your effort, made visible.'})).toBeVisible();
+  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Open navigation'}).click();await page.getByRole('button',{name:'Challenge archive',exact:true}).click();await expect(page.getByRole('heading',{name:'Challenge archive.'})).toBeVisible();
+  await page.getByRole('button',{name:'Open navigation'}).click();await page.getByRole('button',{name:'Your progress',exact:true}).click();await expect(page.getByRole('heading',{name:'Your progress.'})).toBeVisible();
 });
 test('capture desktop and mobile review artifacts',async({page})=>{
   await boot(page);await page.screenshot({path:'test-results/dashboard-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});await page.screenshot({path:'test-results/dashboard-mobile.png',fullPage:true});await page.getByRole('button',{name:'Use dark theme'}).click();await page.screenshot({path:'test-results/dashboard-mobile-dark.png',fullPage:true});
@@ -142,7 +142,7 @@ test('answers survive closing and restarting the browser process',async()=>{
   let persistent=await chromium.launchPersistentContext(directory,options);
   try{const page=persistent.pages()[0]||await persistent.newPage();await boot(page);for(let i=0;i<3;i++){await answer(page,'A');if(i<2)await page.getByRole('button',{name:'Next question',exact:true}).click();}}finally{await persistent.close();}
   persistent=await chromium.launchPersistentContext(directory,options);
-  try{const page=persistent.pages()[0]||await persistent.newPage();await boot(page);await expect(page.locator('.daily-progress')).toContainText('3 / 5 completed');await expect(page.locator('input[value="A"]')).toBeChecked();await expect(page.getByRole('radio').first()).toBeDisabled();}finally{await persistent.close();}
+  try{const page=persistent.pages()[0]||await persistent.newPage();await boot(page);await expect(page.locator('.quiz-count')).toContainText('3 / 5 confirmed');await expect(page.locator('input[value="A"]')).toBeChecked();await expect(page.getByRole('radio').first()).toBeDisabled();}finally{await persistent.close();}
 });
 test('a real backup restores on an empty browser profile',async({page,browser})=>{
   await boot(page);await finish(page);const backup=await profile(page);

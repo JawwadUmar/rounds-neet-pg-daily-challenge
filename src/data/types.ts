@@ -8,6 +8,7 @@ export type Subject = typeof SUBJECTS[number];
 export const LETTERS = ['A', 'B', 'C', 'D'] as const;
 export type Letter = typeof LETTERS[number];
 export interface Reference { title: string; url: string; section: string }
+export interface QuestionImage { src: string; width: number; height: number; alt: string }
 export interface Question {
   id: string;
   statement: string;
@@ -15,12 +16,18 @@ export interface Question {
   correct: Letter;
   subject: Subject;
   topic: string;
-  difficulty: 'Medium' | 'Hard';
+  difficulty: 'Medium' | 'Hard' | null;
   type: 'Practice' | 'PYQ';
   examYear: number | null;
   provenance: string;
   explanation: string;
-  optionExplanations: Record<Letter, string>;
+  optionExplanations: Partial<Record<Letter, string>>;
   takeaways: string[];
   references: Reference[];
+  images?: QuestionImage[];
+  number?: number;
+  answerText?: string;
+  pages?: [number, number];
+  imageUnavailable?: boolean;
+  reviewOnly?: boolean;
 }

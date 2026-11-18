@@ -1,127 +1,125 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, ChartNoAxesCombined, Check, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, ClipboardCheck, Clock3, Copy, Database, Download, ExternalLink, FileCheck2, Flame, GraduationCap, Layers3, Leaf, Menu, Moon, Settings2, Share2, ShieldCheck, Sparkles, Stethoscope, Sun, Target, Trophy, Upload, X } from 'lucide-react';
-import { bank, byId } from '../data/bank';
-import { SUBJECTS, type Letter } from '../data/types';
-import { addDays, ARCHIVE_START, dayInZone, formatDay, navigable, secondsToMidnight } from '../core/dates';
-import { clockIssue, createDay, isComplete, scoreDay, submittedCount, type Action, type Progress } from '../core/model';
+import { ArrowRight, BookMarked, BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight, CircleHelp, Clock3, Copy, Database, Menu, Moon, Settings2, Share2, ShieldCheck, Sun, X } from 'lucide-react';
+import { addDays, ARCHIVE_START, dayInZone, formatDay, navigable } from '../core/dates';
+import { clockIssue, createDay, isComplete, type Action, type Progress } from '../core/model';
 import { questionsForDate } from '../core/schedule';
-import { statistics } from '../core/stats';
 import { copyText, resultText } from '../core/share';
-import { downloadFile, ProgressStore } from '../core/storage';
+import { statistics } from '../core/stats';
+import { ProgressStore } from '../core/storage';
 import { ActivityGraph, Modal, MonthCalendar } from './components';
+import { Library } from './Library';
 import { Quiz } from './Quiz';
+import { focusQuestion } from './QuestionReader';
+import { Archive, LibraryLink, ProgressView, SettingsView, Stats } from './Workspace';
 
-type Page='daily'|'archive'|'progress'|'bank'|'settings';
-const navigation=[{id:'daily',label:'Daily challenge',icon:Stethoscope},{id:'archive',label:'Challenge archive',icon:CalendarDays},{id:'progress',label:'Your progress',icon:ChartNoAxesCombined},{id:'bank',label:'Question bank',icon:Layers3}] as const;
-const titles:Record<Page,string>={daily:'Daily challenge',archive:'Challenge archive',progress:'Your progress',bank:'Question bank',settings:'Settings'};
+type Page='daily'|'bank'|'archive'|'progress'|'settings';
+const navigation=[['daily','Daily challenge'],['bank','PYQ library'],['archive','Challenge archive'],['progress','Your progress']] as const;
 const store=new ProgressStore();
 
 export function App() {
-  const [progress,setProgress]=useState<Progress|null>(null), [now,setNow]=useState(new Date());
+  const [progress,setProgress]=useState<Progress|null>(null),[now,setNow]=useState(new Date());
   const [page,setPage]=useState<Page>('daily'),[date,setDate]=useState<string|null>(null),[month,setMonth]=useState('');
-  const [index,setIndexState]=useState(0),[explanation,setExplanation]=useState(false),[results,setResults]=useState(true),[busy,setBusy]=useState(false);
-  const [modal,setModal]=useState<'help'|'share'|null>(null),[toast,setToast]=useState(''),[menu,setMenu]=useState(false),[filter,setFilter]=useState('All subjects');
-  const [archiveMonth,setArchiveMonth]=useState(''),[importMessage,setImportMessage]=useState('');
+  const [index,setIndex]=useState(0),[explanation,setExplanation]=useState(false),[results,setResults]=useState(true);
+  const [busy,setBusy]=useState(false),[menu,setMenu]=useState(false),[modal,setModal]=useState<'help'|'share'|null>(null),[toast,setToast]=useState('');
   const baseline=useRef({wall:Date.now(),mono:performance.now()});
-  const fileInput=useRef<HTMLInputElement>(null);
+  const closeModal=useCallback(()=>setModal(null),[]);
+  const closeMenu=useCallback(()=>setMenu(false),[]);
+  const today=dayInZone(now,progress?.preferences.timeZone??'Asia/Kolkata');
+  const selected=date&&navigable(date,today)?date:today;
   useEffect(()=>{
     let mounted=true;
-    const unsubscribe=store.subscribe(()=>{ if(mounted)setProgress(store.snapshot); });
-    void store.initialize().then(p=>{if(mounted){setProgress(p); const day=dayInZone(new Date(),p.preferences.timeZone);setMonth(day.slice(0,7));setArchiveMonth(day.slice(0,7));void store.dispatch({type:'touch'}).catch(()=>undefined);}});
+    const unsubscribe=store.subscribe(()=>{if(mounted)setProgress(store.snapshot);});
+    void store.initialize().then(p=>{if(mounted){setProgress(p);void store.dispatch({type:'touch'}).catch(()=>undefined);}});
     const timer=setInterval(()=>setNow(new Date()),15_000);
     const wake=()=>{if(document.visibilityState==='visible'){setNow(new Date());void store.refresh().then(()=>store.dispatch({type:'touch'})).catch(()=>undefined);}};
     document.addEventListener('visibilitychange',wake);
     return ()=>{mounted=false;unsubscribe();clearInterval(timer);document.removeEventListener('visibilitychange',wake);};
   },[]);
-  useEffect(()=>{if(progress) document.documentElement.dataset.theme=progress.preferences.theme;},[progress?.preferences.theme]);
-  useEffect(()=>{if(!toast)return; const timer=setTimeout(()=>setToast(''),4000);return()=>clearTimeout(timer);},[toast]);
-  const closeModal=useCallback(()=>setModal(null),[]);
-  const timeZone=progress?.preferences.timeZone||'Asia/Kolkata';
-  const today=dayInZone(now,timeZone);
+  useEffect(()=>{if(progress)document.documentElement.dataset.theme=progress.preferences.theme;},[progress?.preferences.theme]);
+  useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),4000);return()=>clearTimeout(timer);},[toast]);
   useEffect(()=>{
-    if(date===null||!navigable(date,today)){setDate(null);setIndexState(0);setResults(true);setExplanation(false);setModal(null);setMonth(today.slice(0,7));}
+    if(!date||!navigable(date,today)){setDate(null);setIndex(0);setResults(true);setExplanation(false);setModal(null);setMonth(today.slice(0,7));}
   },[today]);
-  const selected=date&&navigable(date,today)?date:today;
-  const available=today>=ARCHIVE_START;
-  const questions=questionsForDate(available?selected:ARCHIVE_START);
-  const record=progress?.days[selected]||createDay(available?selected:ARCHIVE_START);
-  const stats=progress?statistics(progress,today):{current:0,longest:0,completed:0,attempted:0,correct:0,accuracy:0,onTime:0};
-  const done=isComplete(record), completed=submittedCount(record);
-  const issue=progress?clockIssue(progress,new Date(),baseline.current,performance.now()):null;
-  const changeIndex=(value:number)=>{setIndexState(value);setExplanation(false);setResults(false);};
-  const openDate=(value:string)=>{
-    if(!navigable(value,today)){setToast('Choose a date from the archive through today.');return;}
-    setDate(value===today?null:value);setMonth(value.slice(0,7));setIndexState(0);setResults(true);setExplanation(false);setPage('daily');setMenu(false);
-  };
-  const goPage=(value:Page)=>{setPage(value);setMenu(false);if(value==='daily')openDate(today);};
+  function openDate(value:string) {
+    if(!navigable(value,today)){setToast('Choose a challenge through today.');return;}
+    setDate(value===today?null:value);setMonth(value.slice(0,7));setPage('daily');setIndex(0);setResults(true);setExplanation(false);setMenu(false);
+  }
+  function goPage(value:Page) {
+    if(value==='daily')openDate(today);
+    else{setPage(value);setMenu(false);}
+    window.scrollTo(0,0);
+  }
+  function changeIndex(value:number){setIndex(value);setExplanation(false);setResults(false);focusQuestion();}
+  function openFromArchive(value:string){
+    openDate(value);
+    requestAnimationFrame(()=>document.querySelector('.challenge-heading')?.scrollIntoView({block:'start'}));
+  }
   async function dispatch(action:Action) {
     if(busy)return;
     setBusy(true);
-    try { const updated=await store.dispatch(action,new Date()); if(action.type==='submit'&&isComplete(updated.days[action.date]))setResults(true); setNow(new Date()); }
-    catch(error){setToast(error instanceof Error?error.message:'The change could not be saved.');}
+    try {
+      const updated=await store.dispatch(action,new Date());
+      if(action.type==='submit'&&isComplete(updated.days[action.date]))setResults(true);
+      setNow(new Date());
+    }catch(e){setToast(e instanceof Error?e.message:'Could not save the change.');}
     finally{setBusy(false);}
   }
-  const select=(letter:Letter)=>void dispatch({type:'select',date:selected,id:questions[index].id,selected:letter});
-  const submit=()=>void dispatch({type:'submit',date:selected,id:questions[index].id,clockUncertain:!!issue});
-  const shareValue=done?resultText(record,stats.current):'';
-  async function copyResult() { setToast(await copyText(shareValue)?'Result copied. Ready to share.':'Copy wasn’t available. Select and copy the result text below.'); }
-  async function nativeShare() {
-    try { if(navigator.share) await navigator.share({title:'NEET-PG Daily Challenge',text:shareValue}); else await copyResult(); }
-    catch(error){ if(!(error instanceof DOMException&&error.name==='AbortError')) await copyResult(); }
+  if(!progress)return <main className="loading-screen"><BookOpen size={30}/><p>Opening Rounds…</p></main>;
+  const available=today>=ARCHIVE_START;
+  const day=available?selected:ARCHIVE_START,record=progress.days[day]??createDay(day);
+  const questions=questionsForDate(day,record.version),question=questions[index];
+  const stats=statistics(progress,today),done=isComplete(record),dark=progress.preferences.theme==='dark';
+  const issue=clockIssue(progress,new Date(),baseline.current,performance.now());
+  const shareText=done?resultText(record,stats.current):'';
+  async function copyResult(){setToast(await copyText(shareText)?'Result copied.':'Select the result text to copy it.');}
+  async function shareResult(){
+    try{if(navigator.share)await navigator.share({title:'NEET-PG Daily Challenge',text:shareText});else await copyResult();}
+    catch(e){if(!(e instanceof DOMException&&e.name==='AbortError'))await copyResult();}
   }
-  async function importFile(file?:File) {
-    if(!file)return; setImportMessage('Checking backup…');
-    try {
-      if(file.size>10_000_000)throw new Error('Backup is too large. Choose a Rounds JSON backup below 10 MB.');
-      await store.importBackup(JSON.parse(await file.text())); setImportMessage('Backup merged. Existing locked answers were preserved.');
-    } catch(error){setImportMessage(error instanceof Error?error.message:'Could not read this backup. Existing progress is unchanged.');}
-    if(fileInput.current)fileInput.current.value='';
-  }
-  if(!progress)return <div className="loading-screen"><div className="brand-mark"><Stethoscope size={29}/></div><h1>rounds<span>.</span></h1><p>Opening your study space…</p><span className="loading-line"/></div>;
-  const remaining=secondsToMidnight(now,timeZone),hour=Math.floor(remaining/3600),minute=Math.floor((remaining%3600)/60);
-  const archiveFirst=(archiveMonth||today.slice(0,7))+'-01';
-  const archiveDates=Array.from({length:31},(_,i)=>addDays(archiveFirst,i)).filter(d=>d.startsWith(archiveFirst.slice(0,7))&&navigable(d,today)).reverse();
+  const links=navigation.map(([id,label])=><button key={id} aria-current={page===id?'page':undefined} onClick={()=>goPage(id)}>{label}</button>);
   return <div className="app-shell">
-    <a href="#main-content" className="skip-link">Skip to challenge</a>
-    {menu&&<button className="sidebar-backdrop" aria-label="Close navigation" onClick={()=>setMenu(false)}/>}
-    <aside id="study-navigation" className={`sidebar ${menu?'visible':''}`}>
-      <a className="brand" href="#" onClick={event=>{event.preventDefault();openDate(today);}} aria-label="Rounds home"><span className="brand-mark"><Stethoscope size={25}/></span><span className="brand-word">rounds<span>.</span><small>NEET-PG DAILY</small></span></a>
-      <span className="sidebar-label">YOUR DAILY PRACTICE</span>
-      <nav aria-label="Main navigation">{navigation.map(item=><button key={item.id} className={`nav-item ${page===item.id?'active':''}`} onClick={()=>goPage(item.id)} aria-current={page===item.id?'page':undefined}><item.icon size={19}/>{item.label}{item.id==='daily'&&<span className="nav-dot"/>}</button>)}</nav>
-      <div className="sidebar-goal"><span className="goal-icon"><GraduationCap size={23}/></span><span>THE GOAL<small>NEET-PG <strong>2027</strong></small></span><ArrowUpRight size={15}/></div>
-      <div className="sidebar-bottom"><div className="sidebar-encouragement"><span className="small-spark"><Sparkles size={16}/></span><p>Small steps.<br/><strong>Stronger concepts.</strong></p></div><button className="nav-item" onClick={()=>{setMenu(false);setModal('help');}}><CircleHelp size={19}/>How it works</button><button className={`nav-item ${page==='settings'?'active':''}`} onClick={()=>goPage('settings')}><Settings2 size={19}/>Settings & backups</button><div className="local-profile"><span className="profile-avatar"><Leaf size={19}/></span><div><strong>Your study space</strong><span><i/>{store.mode==='memory'?'Temporary session':'Saved on this device'}</span></div></div></div>
-    </aside>
-    <div className="main-shell"><header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" aria-label="Open navigation" aria-expanded={menu} aria-controls="study-navigation" onClick={()=>setMenu(true)}><Menu size={22}/></button><span>Your workspace</span><ChevronRight size={13}/><strong>{titles[page]}</strong></div><div className="topbar-actions"><span className="private-label"><ShieldCheck size={15}/>Private by default</span><div className="theme-switch" aria-label="Color theme"><button aria-label="Use light theme" aria-pressed={progress.preferences.theme==='light'} className={progress.preferences.theme==='light'?'active':''} disabled={busy} onClick={()=>void dispatch({type:'theme',theme:'light'})}><Sun size={16}/></button><button aria-label="Use dark theme" aria-pressed={progress.preferences.theme==='dark'} className={progress.preferences.theme==='dark'?'active':''} disabled={busy} onClick={()=>void dispatch({type:'theme',theme:'dark'})}><Moon size={15}/></button></div><span className="top-avatar" aria-label="Local study profile">R</span></div></header>
-      <main id="main-content" className="main-content">
-        {store.warning&&<div className="notice warning" role="alert"><Database size={18}/><span>{store.warning}</span><button className="text-button" onClick={()=>goPage('settings')}>Back up<ArrowRight size={14}/></button></div>}
-        {issue&&<div className="notice warning" role="alert"><Clock3 size={18}/><span>{issue}</span></div>}
-        {page==='daily'&&<>
-          <div className="page-heading"><div><div className="overline"><span/>A LITTLE EVERY DAY. A LONG WAY AHEAD.</div><h1>Your daily dose of progress<span>.</span></h1><p>Five thoughtful questions. Stronger clinical reasoning. One consistent you.</p></div><span className="edition-badge"><Sparkles size={14}/>THE 2027 JOURNEY</span></div>
-          <div className="stats-grid">
-            <Stat icon={<Flame size={21}/>} label="Current streak" value={stats.current} unit={stats.current===1?'day':'days'} className="streak-stat" foot={done&&record.streakEligible?'Today is in the books.':stats.current?'Keep the momentum going.':'Your next chapter starts today.'}/>
-            <Stat icon={<Trophy size={20}/>} label="Longest streak" value={stats.longest} unit={stats.longest===1?'day':'days'} className="trophy-stat" foot="Your personal best"/>
-            <Stat icon={<ClipboardCheck size={21}/>} label="Challenges completed" value={stats.completed} unit="" className="complete-stat" foot={`${stats.attempted} questions practiced`}/>
-            <Stat icon={<Target size={21}/>} label="Overall accuracy" value={stats.attempted?stats.accuracy:'—'} unit={stats.attempted?'%':''} className="accuracy-stat" foot={stats.attempted?`${stats.correct} correct of ${stats.attempted} attempted`:'Make your first answer count'}/>
-          </div>
-          <div className="challenge-section-heading"><div><span className="section-dot"/><h2>{selected===today?'Today’s challenge':'From the archive'}</h2><span className="question-count">5 QUESTIONS</span></div><div className="date-navigation"><button className="icon-button" aria-label="Previous challenge" disabled={!available||selected<=ARCHIVE_START} onClick={()=>openDate(addDays(selected,-1))}><ChevronLeft size={17}/></button><label className="date-label"><CalendarDays size={15}/><span>{formatDay(selected,{day:'numeric',month:'short',year:'numeric'})}</span><input aria-label="Choose challenge date" type="date" min={ARCHIVE_START} max={today} value={selected} onChange={event=>openDate(event.target.value)}/></label><button className="icon-button" aria-label="Next challenge" disabled={selected>=today} onClick={()=>openDate(addDays(selected,1))}><ChevronRight size={17}/></button>{selected!==today&&<button className="today-button" onClick={()=>openDate(today)}>Today</button>}</div></div>
-          {selected<today&&<div className="notice catchup"><CalendarDays size={17}/><span>This is a catch-up challenge. Complete it to turn this date green; your streak will stay unchanged.</span></div>}
-          <div className="challenge-layout"><div className="question-column"><div className="daily-progress"><div><span className={done?'progress-check':''}>{done?<CheckCircle2 size={15}/>:<span className="live-dot"/>}{done?'All five, all done.':completed?'A little closer. Keep going.':'A fresh set. A fresh opportunity.'}</span><strong>{completed}<span> / 5 completed</span></strong></div><div className="progress-track"><span style={{width:`${completed*20}%`}}/></div></div>
-            {available?<Quiz questions={questions} day={record} index={index} setIndex={changeIndex} busy={busy} select={select} submit={submit} explanation={explanation} setExplanation={setExplanation} bookmarked={progress.bookmarks.includes(questions[index].id)} bookmark={()=>void dispatch({type:'bookmark',id:questions[index].id,date:selected})} results={done&&results} review={()=>{setResults(false);setIndexState(0);setExplanation(true);}} share={()=>setModal('share')} currentStreak={stats.current} durable={store.mode!=='memory'}/>:<section className="panel empty-state"><Clock3 size={30}/><h2>Check your device date</h2><p>The archive starts on 1 January 2026. Your device is set before that date.</p></section>}
-            <div className="question-assurance"><ShieldCheck size={14}/><span>5 different subjects · Medium to hard · Detailed explanations</span><button onClick={()=>goPage('bank')}>About the questions<ArrowUpRight size={12}/></button></div>
-          </div><div className="right-column"><MonthCalendar month={month||today.slice(0,7)} setMonth={setMonth} today={today} selected={selected} progress={progress} openDate={openDate}/><div className="habit-card"><div className="habit-art" aria-hidden="true"><span className="habit-orbit orbit-one"/><span className="habit-orbit orbit-two"/><Flame size={47} strokeWidth={1.5}/><Sparkles className="habit-spark" size={17}/></div><span className="eyebrow">THE POWER OF SHOWING UP</span><h3>Tomorrow’s confidence.<br/>Built in today’s five.</h3><p>{done?'You’ve done your rounds. Come back tomorrow for a fresh five.':'A few focused minutes can become your strongest study habit.'}</p><span className="reset-note"><Clock3 size={13}/>New challenge in {hour}h {minute}m</span></div></div></div>
-          <ActivityGraph today={today} progress={progress} openDate={openDate}/>
-        </>}
-        {page==='archive'&&<><PageHeading eyebrow="EVERY DAY IS STILL HERE" title="Make room for a catch-up." description="Revisit a day, finish a set, and keep building your understanding."/><div className="panel archive-panel"><div className="archive-heading"><h2>Challenge archive</h2><label>Month<input type="month" min={ARCHIVE_START.slice(0,7)} max={today.slice(0,7)} value={archiveMonth} onChange={event=>{if(event.target.value>=ARCHIVE_START.slice(0,7)&&event.target.value<=today.slice(0,7))setArchiveMonth(event.target.value);}}/></label></div><p className="archive-description">Catch-up days count toward your total and calendar. Streaks reward completing a challenge on its own day.</p><div className="archive-list">{archiveDates.map(d=>{const day=progress.days[d],complete=isComplete(day),count=submittedCount(day);return <button key={d} className="archive-row" onClick={()=>openDate(d)}><span className={`archive-date-icon ${complete?'done':''}`}>{complete?<Check size={21}/>:<CalendarDays size={20}/>}</span><span className="archive-date"><strong>{formatDay(d,{weekday:'long',day:'numeric',month:'short'})}{d===today&&<em>Today</em>}</strong><span>{questionsForDate(d).map(q=>q.subject).join(' · ')}</span></span><span className={`archive-status ${complete?'complete':''}`}>{complete?`${scoreDay(day!)}/5 correct`:count?`${count}/5 attempted`:'Not started'}</span><ArrowRight size={17}/></button>;})}</div></div></>}
-        {page==='progress'&&<><PageHeading eyebrow="LOOK HOW FAR YOU’VE COME" title="Your effort, made visible." description="Every answer is a chance to understand something more deeply."/><div className="stats-grid"><Stat icon={<Flame size={21}/>} label="Current streak" value={stats.current} unit="days" className="streak-stat" foot={`${stats.onTime} on-time completions`}/><Stat icon={<Trophy size={20}/>} label="Longest streak" value={stats.longest} unit="days" className="trophy-stat" foot="Your personal best"/><Stat icon={<ClipboardCheck size={21}/>} label="Completed challenges" value={stats.completed} unit="" className="complete-stat" foot="Including catch-up challenges"/><Stat icon={<Target size={21}/>} label="Accuracy" value={stats.attempted?stats.accuracy:'—'} unit={stats.attempted?'%':''} className="accuracy-stat" foot={`${stats.correct} / ${stats.attempted} correct`}/></div><ActivityGraph today={today} progress={progress} openDate={openDate}/><section className="panel subject-progress"><h2>Across the curriculum</h2><p>Only confirmed answers count toward subject accuracy.</p><div className="subject-progress-grid">{SUBJECTS.map(subject=>{const attempted=Object.values(progress.days).filter(d=>d.date<=today).flatMap(d=>d.questionIds.filter(id=>byId.get(id)?.subject===subject&&d.attempts[id].submitted).map(id=>({correct:d.attempts[id].selected===byId.get(id)?.correct})));const correct=attempted.filter(a=>a.correct).length;return <div key={subject}><div><strong>{subject}</strong><span>{attempted.length?`${correct}/${attempted.length}`:'Not attempted'}</span></div><div className="progress-track"><span style={{width:`${attempted.length?correct/attempted.length*100:0}%`}}/></div></div>;})}</div></section>{progress.bookmarks.length>0&&<section className="panel saved-questions"><h2>Saved for a second look</h2><p>Your bookmarked questions. Explanations unlock after you attempt them.</p>{progress.bookmarks.map(id=>{const q=byId.get(id);if(!q)return null;const d=Object.values(progress.days).find(d=>d.date<=today&&d.questionIds.includes(id));return <div key={id}><span><strong>{q.subject}</strong><small>{id} · {q.difficulty}</small></span>{d?<button className="text-button" onClick={()=>{openDate(d.date);changeIndex(d.questionIds.indexOf(id));}}>Open question<ArrowRight size={14}/></button>:<button className="text-button" onClick={()=>void dispatch({type:'bookmark',id})}>Remove</button>}</div>;})}</section>}</>}
-        {page==='bank'&&<><PageHeading eyebrow="GOOD QUESTIONS. HONEST SOURCES." title="Built for understanding." description="A balanced bank of clinically focused questions, with the reasoning behind every answer."/><div className="bank-overview"><div className="panel bank-count"><Layers3 size={29}/><strong>190</strong><span>original practice questions</span></div><div className="panel bank-count"><BookOpen size={29}/><strong>19</strong><span>subjects, equally represented</span></div><div className="panel bank-count"><CalendarDays size={29}/><strong>38</strong><span>days before a question repeats</span></div></div><section className="panel sourcing-panel"><span className="eyebrow">A NOTE ON PROVENANCE</span><h2>Practice, clearly labeled.</h2><p>Every question here is independently authored practice. We found public recall compilations and open medical datasets, but could not authenticate them as exact NEET-PG papers with official answer keys. <strong>This edition contains no authenticated PYQs.</strong></p><p>Questions include references, a rationale for every option and clinical takeaways. Difficulty is an editorial estimate. The AI-authored bank has not received independent clinician or psychometric review.</p><div className="source-links"><a href="https://nbe.edu.in/IB/IB%20NEET-PG%202025.pdf" target="_blank" rel="noreferrer">NBEMS information bulletin<ExternalLink size={13}/></a><a href="https://github.com/medmcqa/medmcqa" target="_blank" rel="noreferrer">MedMCQA source assessment<ExternalLink size={13}/></a><a href="https://www.marrow.com/blog/neet-pg-2024-recall-videos-release-schedule/" target="_blank" rel="noreferrer">Public recall resource<ExternalLink size={13}/></a></div></section><section className="panel bank-subjects"><div className="archive-heading"><h2>The full curriculum</h2><select aria-label="Filter question bank by subject" value={filter} onChange={event=>setFilter(event.target.value)}><option>All subjects</option>{SUBJECTS.map(s=><option key={s}>{s}</option>)}</select></div><p>Topics are shown here for study planning. Daily questions keep their topic hidden until you answer.</p>{SUBJECTS.filter(s=>filter==='All subjects'||s===filter).map(subject=><details key={subject} open={filter!=='All subjects'}><summary><span>{subject}</span><span>10 questions</span></summary><div className="topic-list">{bank.filter(q=>q.subject===subject).map(q=><div key={q.id}><span>{q.topic}</span><small className={`difficulty ${q.difficulty.toLowerCase()}`}>{q.difficulty}</small></div>)}</div></details>)}</section></>}
-        {page==='settings'&&<><PageHeading eyebrow="YOUR BROWSER. YOUR PROGRESS." title="Make yourself at home." description="Keep your study space comfortable and your progress backed up."/><div className="settings-layout"><section className="panel settings-panel"><h2>Appearance</h2><p>A little easier on the eyes, any time of day.</p><div className="setting-theme"><button className={progress.preferences.theme==='light'?'selected':''} disabled={busy} onClick={()=>void dispatch({type:'theme',theme:'light'})}><Sun size={24}/><span>Light</span>{progress.preferences.theme==='light'&&<Check size={16}/>}</button><button className={progress.preferences.theme==='dark'?'selected':''} disabled={busy} onClick={()=>void dispatch({type:'theme',theme:'dark'})}><Moon size={24}/><span>Dark</span>{progress.preferences.theme==='dark'&&<Check size={16}/>}</button></div><h2 className="setting-section-title">Your study clock</h2><div className="timezone-setting"><Clock3 size={19}/><div><strong>{timeZone}</strong><span>Saved on your first visit</span></div><span className="subtle-pill">LOCKED TO HISTORY</span></div><p className="setting-help">A fixed study timezone keeps dates and streaks consistent when you travel. New days start at midnight in this timezone. Device date and time are used; an offline app cannot verify them independently.</p></section><section className="panel settings-panel"><h2>Keep a copy of your progress</h2><p>No account, no cloud storage. Your answers stay in this browser.</p><div className="storage-status"><Database size={20}/><div><strong>{store.mode==='indexeddb'?'IndexedDB storage':store.mode==='local'?'Browser local storage':'Temporary session storage'}</strong><span>{stats.completed} completed challenges · {stats.attempted} confirmed answers</span></div><span className={`storage-dot ${store.mode==='memory'?'warning':''}`}/></div><div className="backup-actions"><button className="button primary" onClick={()=>downloadFile(JSON.stringify(progress,null,2),`rounds-backup-${today}.json`)}><Download size={16}/>Export backup</button><button className="button secondary" onClick={()=>fileInput.current?.click()}><Upload size={16}/>Import backup</button><input className="sr-only" type="file" accept=".json,application/json" ref={fileInput} aria-label="Import progress backup" onChange={event=>void importFile(event.target.files?.[0])}/></div>{importMessage&&<p className="import-message" role="status">{importMessage}</p>}<p className="setting-help">Import merges compatible records and preserves locked answers. A conflicting backup is rejected before it changes saved progress. Only import backups you trust; local files cannot be independently authenticated.</p><div className="backup-notice"><ShieldCheck size={20}/><p>Clearing browser data, using private browsing or switching devices can remove your progress. Export a backup to keep it, and import it on another device using the same study timezone.</p></div>{store.recoveryRaw&&<button className="button secondary" onClick={()=>downloadFile(store.recoveryRaw!,`rounds-original-data-${today}.json`)}><ArrowDownToLine size={16}/>Download preserved original data</button>}</section></div></>}
-        <footer className="site-footer"><a href="#" onClick={event=>{event.preventDefault();openDate(today);}}><Stethoscope size={15}/>rounds<span>.</span></a><span>One day. Five questions. A better prepared you.</span><span className="footer-storage"><ShieldCheck size={12}/>{store.mode==='memory'?'Temporary session':'Progress stays on this device'}</span></footer>
-      </main>
-    </div>
-    {toast&&<div className="toast" role="status"><CheckCircle2 size={17}/>{toast}<button aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={14}/></button></div>}
-    {modal==='share'&&done&&<Modal title="A small win, worth sharing." close={closeModal}><p className="modal-intro">Your five answers, without the spoilers.</p><textarea className="share-preview" readOnly value={shareValue} aria-label="Shareable challenge result" rows={13} onFocus={event=>event.target.select()}/><div className="share-actions"><button className="button primary" onClick={()=>void copyResult()}><Copy size={16}/>Copy to clipboard</button><button className="button secondary" onClick={()=>void nativeShare()}><Share2 size={16}/>{typeof navigator.share==='function'?'Share result':'Copy & share'}</button></div></Modal>}
-    {modal==='help'&&<Modal title="Five a day. A habit for 2027." close={closeModal}><div className="help-step"><span>01</span><div><h3>Think it through</h3><p>Five fixed questions arrive at midnight in your saved study timezone. Each set covers five different subjects. Confirm an answer to lock it and unlock the explanation.</p></div></div><div className="help-step"><span>02</span><div><h3>Learn the why</h3><p>Read the reasoning, compare distractors and save concepts for another look. This finite bank repeats after 38 days; the archive is available from 1 January 2026.</p></div></div><div className="help-step"><span>03</span><div><h3>Come back tomorrow</h3><p>Complete all five on their own day to earn streak credit. Yesterday’s streak stays active while today is pending. Catch-up turns old dates green and adds to your total, but never repairs a missed-day streak.</p></div></div><div className="backup-notice"><ShieldCheck size={20}/><p>No login needed. Progress is browser-local and can be lost if browser data is cleared. Export a backup in Settings.</p></div><p className="editorial-note">Original AI-authored practice, with reference links and estimated difficulty. No authenticated PYQs or independent clinician validation. For study, not patient care. A static app uses device time and cannot prevent deliberate clock or storage edits.</p></Modal>}
+    <a href="#main-content" className="skip-link">Skip to content</a>
+    <header className="masthead"><div className="masthead-inner">
+      <button className="brand" aria-label="Rounds home" onClick={()=>goPage('daily')}><span className="brand-mark"><BookOpen size={21} strokeWidth={1.5}/></span><span>rounds<span>.</span></span></button>
+      <nav className="desktop-nav" aria-label="Main navigation">{links}</nav>
+      <div className="mast-tools"><button className="icon-button" aria-label={dark?'Use light theme':'Use dark theme'} title={dark?'Light theme':'Dark theme'} disabled={busy} onClick={()=>void dispatch({type:'theme',theme:dark?'light':'dark'})}>{dark?<Sun size={18}/>:<Moon size={18}/>}</button>
+        <button className="icon-button settings-toggle" aria-label="Settings & backups" onClick={()=>goPage('settings')}><Settings2 size={18}/></button>
+        <button className="icon-button mobile-menu" aria-label="Open navigation" aria-expanded={menu} onClick={()=>setMenu(true)}><Menu size={22}/></button></div>
+    </div></header>
+    <main id="main-content" className="main-content">
+      {store.warning&&<div className="notice warning" role="alert"><Database size={18}/><span>{store.warning}</span><button className="text-button" onClick={()=>goPage('settings')}>Back up<ArrowRight size={15}/></button></div>}
+      {issue&&<div className="notice warning" role="alert"><Clock3 size={18}/>{issue}</div>}
+      {page==='daily' && <div className="page-enter">
+        <div className="desk-intro"><header className="page-heading"><p className="section-label"><span className="small-rule"/>NEET-PG 2027</p><h1>Daily <em>rounds.</em></h1><p>Five clinical questions across five subjects. Review the reasoning behind each answer as you go.</p></header><LibraryLink open={()=>goPage('bank')}/></div>
+        <Stats stats={stats}/>
+        <div className="challenge-heading"><div className="section-line"><h2>{selected===today?'Question of the day':'From the archive'}</h2></div>
+          <div className="date-navigation"><button className="icon-button" aria-label="Previous challenge" disabled={!available||selected<=ARCHIVE_START} onClick={()=>openDate(addDays(selected,-1))}><ChevronLeft size={16}/></button>
+            <label className="date-label"><CalendarDays size={15}/><span>{formatDay(selected,{day:'numeric',month:'short',year:'numeric'})}</span><input aria-label="Choose challenge date" type="date" min={ARCHIVE_START} max={today} value={selected} onChange={e=>openDate(e.target.value)}/></label>
+            <button className="icon-button" aria-label="Next challenge" disabled={selected>=today} onClick={()=>openDate(addDays(selected,1))}><ChevronRight size={16}/></button>
+            {selected<today&&<button className="today-link" onClick={()=>openDate(today)}>Today</button>}</div>
+        </div>
+        {selected<today&&<p className="notice catchup"><CalendarDays size={16}/>Catch-up challenge. Completion counts toward your calendar and total.</p>}
+        <div className="challenge-layout">
+          {available?<Quiz questions={questions} day={record} index={index} setIndex={changeIndex} busy={busy}
+            select={letter=>void dispatch({type:'select',date:selected,id:question.id,selected:letter})}
+            submit={()=>void dispatch({type:'submit',date:selected,id:question.id,clockUncertain:!!issue})}
+            explanation={explanation} setExplanation={setExplanation} bookmarked={progress.bookmarks.includes(question.id)}
+            bookmark={()=>void dispatch({type:'bookmark',id:question.id,date:selected})} results={done&&results}
+            review={()=>{changeIndex(0);setExplanation(true);}} share={()=>setModal('share')} currentStreak={stats.current} durable={store.mode!=='memory'}/>
+          :<section className="panel empty-state"><h2>Check your device date</h2><p>The archive starts on 1 January 2026.</p></section>}
+          <aside className="desk-aside"><MonthCalendar month={month||today.slice(0,7)} setMonth={setMonth} today={today} selected={selected} progress={progress} openDate={openFromArchive}/>
+            {available&&<section className="contents-panel"><h3><BookMarked size={17}/>In this challenge</h3><ol>{questions.map((q,i)=><li key={q.id}><button className={index===i&&!(done&&results)?'current':''} onClick={()=>changeIndex(i)}><span>{String(i+1).padStart(2,'0')}</span>{q.subject}{record.attempts[q.id]?.submitted?<Check size={14}/>:<ChevronRight size={13}/>}</button></li>)}</ol></section>}</aside>
+        </div><ActivityGraph today={today} progress={progress} openDate={openFromArchive}/>
+      </div>}
+      {page==='bank'&&<Library study={progress.study??{}} busy={busy} dispatch={a=>void dispatch(a)}/>}
+      {page==='archive'&&<Archive today={today} progress={progress} openDate={openFromArchive}/>}
+      {page==='progress'&&<ProgressView today={today} progress={progress} openDate={openFromArchive} openQuestion={(d,i)=>{openDate(d);changeIndex(i);}}/>}
+      {page==='settings'&&<SettingsView progress={progress} today={today} busy={busy} dispatch={a=>void dispatch(a)} store={store}/>}
+      <footer className="site-footer"><span><BookOpen size={15}/> rounds.</span><button className="text-button" onClick={()=>setModal('help')}><CircleHelp size={15}/>How it works</button><small><ShieldCheck size={13}/>{store.mode==='memory'?'Temporary session':'Saved on this device'}</small></footer>
+    </main>
+    {menu&&<Modal title="Navigation" close={closeMenu}><nav className="mobile-nav" aria-label="Mobile navigation">{links}<button onClick={()=>goPage('settings')}>Settings & backups</button></nav></Modal>}
+    {toast&&<div className="toast" role="status">{toast}<button className="icon-button" aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={15}/></button></div>}
+    {modal==='share'&&done&&<Modal title="Share your result" close={closeModal}><textarea className="share-preview" readOnly value={shareText} aria-label="Shareable challenge result" rows={12} onFocus={e=>e.target.select()}/><div className="share-actions"><button className="button primary" onClick={()=>void copyResult()}><Copy size={16}/>Copy to clipboard</button><button className="button secondary" onClick={()=>void shareResult()}><Share2 size={16}/>{typeof navigator.share==='function'?'Share result':'Copy & share'}</button></div></Modal>}
+    {modal==='help'&&<Modal title="How daily rounds work" close={closeModal}><div className="help-copy"><h3>Attempt the set</h3><p>Five questions open at midnight in your study timezone. Choose an option and confirm to lock your answer and unlock the solution.</p><h3>Build a streak</h3><p>Finish all five on their calendar day to earn streak credit. Catch-up challenges mark the original date complete. A missed day ends a streak.</p><h3>Study a paper</h3><p>Open the PYQ library to work by subject or year. Library answers are saved separately from daily challenges.</p><h3>Keep your progress</h3><p>Your browser stores your answers. Export a backup in Settings before clearing browser data or moving to another device.</p></div></Modal>}
   </div>;
 }
-function Stat({icon,label,value,unit,className,foot}:{icon:React.ReactNode;label:string;value:number|string;unit:string;className:string;foot:string}) {return <section className={`panel stat-card ${className}`}><div className="stat-top"><span>{label}</span><span className="stat-icon">{icon}</span></div><div className="stat-value">{value}<span>{unit}</span></div><p>{foot}</p></section>;}
-function PageHeading({eyebrow,title,description}:{eyebrow:string;title:string;description:string}){return <div className="page-heading secondary-page-heading"><div><div className="overline"><span/>{eyebrow}</div><h1>{title}</h1><p>{description}</p></div></div>;}
