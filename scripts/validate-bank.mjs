@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, readdir, stat } from 'node:fs/promises';
+import { mkdir, readFile, readdir, stat } from 'node:fs/promises';
 import { build } from 'esbuild';
 
 await mkdir('.cache',{recursive:true});
@@ -49,4 +49,12 @@ for(const [year,count] of Object.entries(counts)) {
   for(const file of await readdir('public/assets/images/pyq/'+year))assert.ok(linked.has(`assets/images/pyq/${year}/`+file),file);
 }
 assert.equal(linked.size,495);
-console.log('Passed: 2,061 paired paper entries, 190 original questions, 19 subjects, 495 linked figures and 285 qualified daily entries.');
+const mixed=JSON.parse(await readFile('src/data/schedule-v2.json','utf8'));
+const dailyPdf=bank.filter(q=>q.examYear!==null);
+const dailyPdfIds=new Set(dailyPdf.map(q=>q.id));
+assert.equal(dailyPdf.length,95);
+assert.equal(dailyPdfIds.size,dailyPdf.length);
+assert.equal(dailyPdf.filter(q=>!mixed.ids.includes(q.id)).length,0);
+assert.equal(mixed.ids.filter(id=>dailyPdfIds.has(id)).length,95);
+for(const subject of subjects)assert.equal(dailyPdf.filter(q=>q.subject===subject).length,5,subject);
+console.log('Passed: 2,061 paired paper entries, 190 original questions, 19 subjects, 495 linked figures, 95 scheduled PDF daily questions and 285 qualified daily entries.');
