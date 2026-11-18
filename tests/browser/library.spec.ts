@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { byId } from '../../src/data/bank';
 
 test('year and subject filters open the original clinical figure, key and locked solution',async({page})=>{
   await page.goto('/');
@@ -63,4 +64,34 @@ test('curriculum and readers omit rotation, origin and count labels; contradicto
   await expect(page.locator('.printed-key')).toContainText('(D)');
   await expect(page.locator('.solution-prose')).toContainText('magnesium');
   await expect(page.locator('.quiz-body')).not.toContainText(forbidden);
+});
+
+test('PYQ library metrics follow filters, clear only the confirmed scope, and number filtered questions',async({page})=>{
+  await page.goto('/');await page.locator('.library-link').click();
+  await page.getByRole('button',{name:'Browse 2019 paper'}).click();
+  await expect(page.locator('.pyq-filter-metrics')).toContainText('0/293');
+  await expect(page.locator('.question-position').first()).toHaveText('1/293');
+  await page.getByRole('button',{name:'Next page'}).click();
+  await expect(page.locator('.question-position').first()).toHaveText('13/293');
+  await page.getByLabel('Filter by subject').selectOption('Anatomy');
+  await expect(page.locator('.pyq-filter-metrics')).toContainText('0/23');
+  await expect(page.locator('.question-position').first()).toHaveText('1/23');
+  const question=byId.get('pyq-2019-1')!;
+  await page.locator('#entry-pyq-2019-1').click();
+  await page.locator(`.option:has(input[value="${question.correct}"])`).click();
+  await page.getByRole('button',{name:'Confirm answer'}).click();
+  await page.getByRole('button',{name:'Back to papers'}).click();
+  await expect(page.locator('.pyq-filter-metrics')).toContainText('1/23');
+  await expect(page.locator('.pyq-filter-metrics')).toContainText('100%');
+  await page.getByRole('button',{name:'Clear subject data'}).click();
+  await expect(page.getByRole('dialog')).toContainText('Anatomy in 2019');
+  await page.getByRole('button',{name:'Cancel'}).click();
+  await expect(page.locator('.pyq-filter-metrics')).toContainText('1/23');
+  await page.getByRole('button',{name:'Clear subject data'}).click();
+  await page.getByRole('button',{name:'Clear performance'}).click();
+  await expect(page.locator('.pyq-filter-metrics')).toContainText('0/23');
+  await expect(page.locator('.pyq-filter-metrics')).toContainText('Accuracy');
+  await page.getByRole('button',{name:'Your progress',exact:true}).click();
+  await expect(page.getByRole('row',{name:/2019 0\/293/})).toBeVisible();
+  await expect(page.locator('.section-panel').first()).toContainText('Total attempted');
 });

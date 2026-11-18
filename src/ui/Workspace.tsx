@@ -4,6 +4,7 @@ import { byId } from '../data/bank';
 import { SUBJECTS } from '../data/types';
 import { addDays, ARCHIVE_START, formatDay, navigable } from '../core/dates';
 import { isComplete, scoreDay, scoredCount, submittedCount, type Action, type Progress } from '../core/model';
+import { dailySubjectMetrics, pyqYearMetrics } from '../core/performance';
 import { questionsForDate } from '../core/schedule';
 import { statistics } from '../core/stats';
 import { downloadFile, type ProgressStore } from '../core/storage';
@@ -30,17 +31,13 @@ export function Archive({today,progress,openDate}:{today:string;progress:Progres
 }
 
 export function ProgressView({today,progress,openDate,openQuestion}:{today:string;progress:Progress;openDate:(d:string)=>void;openQuestion:(d:string,i:number)=>void}) {
-  const stats=statistics(progress,today), totals=new Map<string,{n:number;correct:number}>();
-  for(const record of Object.values(progress.days).filter(d=>d.date<=today)) {
-    for(const id of record.questionIds) {
-      const q=byId.get(id), a=record.attempts[id];
-      if(!q||!a.submitted)continue;
-      const entry=totals.get(q.subject)??{n:0,correct:0};
-      entry.n++;if(a.selected===q.correct)entry.correct++;totals.set(q.subject,entry);
-    }
-  }
+  const stats=statistics(progress,today),daily=dailySubjectMetrics(progress,today),dailyBySubject=new Map(daily.map(row=>[row.subject,row]));
+  const pyq=pyqYearMetrics(progress),dailyCorrect=daily.reduce((sum,row)=>sum+row.correct,0),dailyAccuracy=stats.attempted?Math.round(dailyCorrect/stats.attempted*100):null;
   return <div className="page-enter"><header className="page-heading"><p className="section-label"><BookOpen size={15}/>Study record</p><h1>Your <em>progress.</em></h1></header><Stats stats={stats}/><ActivityGraph today={today} progress={progress} openDate={openDate}/>
-    <section className="panel section-panel"><h2>Subject accuracy</h2><div className="subject-progress-grid">{SUBJECTS.map(s=>{const row=totals.get(s);return <div key={s}><div><strong>{s}</strong><span>{row?`${row.correct}/${row.n}`:'Not attempted'}</span></div><div className="progress-track"><span style={{width:`${row?row.correct/row.n*100:0}%`}}/></div></div>;})}</div></section>
+    <section className="panel section-panel"><h2>Subject accuracy</h2><p>Daily challenge attempts only. PYQ Library attempts are tracked separately.</p>
+      <div className="performance-summary"><div><span>Total attempted</span><strong>{stats.attempted}</strong></div><div><span>Overall accuracy</span><strong>{dailyAccuracy===null?'—':`${dailyAccuracy}%`}</strong></div></div>
+      <div className="subject-progress-grid">{SUBJECTS.map(s=>{const row=dailyBySubject.get(s);return <div key={s}><div><strong>{s}</strong><span>{row?`${row.attempted} attempted · ${row.accuracy}%`:'Not attempted'}</span></div><div className="progress-track"><span style={{width:`${row?.accuracy??0}%`}}/></div></div>;})}</div></section>
+    <section className="panel section-panel"><h2>PYQ performance</h2><p>PYQ Library submissions only. Daily challenge attempts are tracked separately.</p><div className="metrics-table-wrap"><table className="metrics-table"><thead><tr><th scope="col">Year</th><th scope="col">Attempted</th><th scope="col">Accuracy</th></tr></thead><tbody>{pyq.map(row=><tr key={row.year}><th scope="row">{row.year}</th><td>{row.attempted}/{row.available}</td><td>{row.accuracy===null?'—':`${row.accuracy}%`}</td></tr>)}</tbody></table></div></section>
     {progress.bookmarks.length>0&&<section className="panel section-panel"><h2>Saved for review</h2>{progress.bookmarks.map(id=>{const q=byId.get(id),record=Object.values(progress.days).find(d=>d.date<=today&&d.questionIds.includes(id));return q&&record?<button key={id} className="catalogue-entry" onClick={()=>openQuestion(record.date,record.questionIds.indexOf(id))}><span><small>{q.subject}</small><strong>{q.statement}</strong></span><ChevronRight size={16}/></button>:null;})}</section>}
   </div>;
 }

@@ -7,6 +7,7 @@ import { addDays, calendarMonth, dayInZone, navigable, ordinal, secondsToMidnigh
 import { questionsForDate } from '../src/core/schedule';
 import { applyAction, clockIssue, emptyProgress, isComplete, mergeBackup, scoreDay, scoredCount, validateProgress, type Progress } from '../src/core/model';
 import { statistics } from '../src/core/stats';
+import { dailySubjectMetrics, pyqYearMetrics, accuracyForQuestions } from '../src/core/performance';
 import { resultText } from '../src/core/share';
 const at = (date: string) => new Date(date + 'T12:00:00+05:30');
 function finish(progress: Progress, day: string, actual = day, uncertain = false) {
@@ -93,6 +94,34 @@ test('library answers lock and survive backup without affecting challenge histor
   assert.deepEqual(mergeBackup(p,confirmed).study,confirmed.study);
   assert.equal(statistics(confirmed,day).attempted,0);assert.deepEqual(confirmed.days,{});
   assert.throws(()=>applyAction(p,{type:'study-select',id:'pyq-2018-998',selected:'A'},now));
+});
+test('daily and PYQ metrics use separate persisted attempt records and scoped PYQ clearing',()=>{
+  const date='2026-11-19',now=at(date),p=emptyProgress(now,'Asia/Kolkata');
+  const q1=byId.get('pyq-2019-1')!,q2=byId.get('pyq-2019-2')!,other=bank.find(q=>q.examYear===2019&&q.subject!==q1.subject)!,nextYear=byId.get('pyq-2020-1')!;
+  let next=p;
+  for(const [q,answer] of [[q1,q1.correct],[q2,q2.correct==='A'?'B':'A'],[other,other.correct],[nextYear,nextYear.correct]] as const){
+    next=applyAction(next,{type:'study-select',id:q.id,selected:answer},now);
+    next=applyAction(next,{type:'study-submit',id:q.id},now);
+  }
+  const year=pyqYearMetrics(next).find(row=>row.year===2019)!;
+  assert.deepEqual([year.attempted,year.available,year.correct,year.accuracy],[3,293,2,67]);
+  const subject=accuracyForQuestions([q1,q2],next.study!);
+  assert.deepEqual([subject.attempted,subject.available,subject.correct,subject.accuracy],[2,2,1,50]);
+  assert.equal(dailySubjectMetrics(next,date).length,0);
+
+  const challengeQ=questionsForDate(date)[0];
+  next=applyAction(next,{type:'select',date,id:challengeQ.id,selected:challengeQ.correct},now);
+  next=applyAction(next,{type:'submit',date,id:challengeQ.id},now);
+  assert.equal(dailySubjectMetrics(next,date).find(row=>row.subject===challengeQ.subject)?.attempted,1);
+  assert.equal(pyqYearMetrics(next).find(row=>row.year===2019)?.attempted,3);
+
+  next=applyAction(next,{type:'clear-pyq-performance',year:2019,subject:q1.subject},now);
+  assert.equal(next.study?.[q1.id],undefined);assert.equal(next.study?.[q2.id],undefined);
+  assert.ok(next.study?.[other.id]?.submitted);assert.ok(next.study?.[nextYear.id]?.submitted);
+  assert.equal(next.days[date].attempts[challengeQ.id].submitted,true);
+  next=applyAction(next,{type:'clear-pyq-performance',year:2019},now);
+  assert.equal(Object.keys(next.study??{}).some(id=>byId.get(id)?.examYear===2019),false);
+  assert.ok(next.study?.[nextYear.id]?.submitted);
 });
 test('upgrading a read-only legacy visit preserves the set the student already saw',()=>{
   const date='2026-11-18',legacy=emptyProgress(at(date),'Asia/Kolkata');

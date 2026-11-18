@@ -1,4 +1,5 @@
-import type { Letter } from '../data/types';
+import { byId } from '../data/bank';
+import type { Letter, Subject } from '../data/types';
 import { browserZone, dayInZone, isDay, navigable, validZone } from './dates';
 import { questionsForDate, versionForDate } from './schedule';
 export interface Attempt { selected: Letter | null; submitted: boolean; submittedAt: string | null }
@@ -37,10 +38,19 @@ export type Action =
   | { type: 'theme'; theme: 'light' | 'dark' }
   | { type: 'bookmark'; id: string; date?: string }
   | { type: 'study-select' | 'study-submit'; id: string; selected?: Letter }
+  | { type: 'clear-pyq-performance'; year: number; subject?: Subject }
   | { type: 'touch' };
 export function applyAction(progress: Progress, action: Action, now = new Date()): Progress {
   const next = structuredClone(progress);
   if (action.type === 'theme') next.preferences.theme = action.theme;
+  else if(action.type==='clear-pyq-performance') {
+    if(!Number.isInteger(action.year)||action.year<2018||action.year>2025)throw new Error('Choose a valid PYQ year.');
+    for(const id of Object.keys(next.study??{})) {
+      const q=byId.get(id);
+      if(q?.examYear===action.year&&(!action.subject||q.subject===action.subject))delete next.study![id];
+    }
+    if(next.study&&!Object.keys(next.study).length)delete next.study;
+  }
   else if (action.type === 'bookmark') {
     const removing=next.bookmarks.includes(action.id);
     next.bookmarks = removing ? next.bookmarks.filter(id => id !== action.id) : [...next.bookmarks, action.id];

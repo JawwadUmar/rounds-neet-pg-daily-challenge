@@ -424,10 +424,25 @@ select:focus,.month-picker input:focus{border-color:var(--wine)}
 .catalogue-entry strong{font:16px/1.4 var(--reading);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .catalogue-entry small,.archive-title small,.archive-status,.month-picker{font:12px/1.4 var(--mono);color:var(--muted)}
 .catalogue-entry small{color:var(--brass)}
+.question-position{font-weight:600;color:var(--wine)}
 .catalogue-entry svg,.archive-row>svg{color:var(--brass)}
 .pager{padding:10px 0 0}.empty-state{padding:28px 10px;text-align:center;color:var(--muted)}
 .library-reader{max-width:860px;margin:auto}
 .library-reader-nav{max-width:860px;margin:0 auto 12px}
+.pyq-filter-metrics{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--inset);padding:15px 17px;margin:0 0 16px}
+.pyq-filter-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.pyq-filter-heading h3{font:500 17px var(--display)}
+.pyq-filter-heading p{font-size:12px;color:var(--muted);margin-top:4px}
+.performance-summary{display:flex;gap:12px;margin-top:14px}
+.performance-summary>div{display:grid;gap:4px;min-width:140px;padding:10px 13px;border:1px solid var(--line);border-radius:var(--radius);background:var(--sheet)}
+.performance-summary span{font:11px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.performance-summary strong{font:500 22px var(--display);color:var(--ink)}
+.metrics-table-wrap{overflow-x:auto;margin-top:12px}
+.metrics-table{width:100%;border-collapse:collapse;text-align:left;font-size:14px}
+.metrics-table th,.metrics-table td{padding:10px 12px;border-top:1px solid var(--line)}
+.metrics-table thead th{font:11px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.metrics-table tbody th{font-weight:600;color:var(--wine)}
+.metrics-table tbody td{font-variant-numeric:tabular-nums}
 
 /* ─── Archive ──────────────────────────────────────────────── */
 .archive-title{flex:1}
@@ -452,6 +467,7 @@ select:focus,.month-picker input:focus{border-color:var(--wine)}
 
 /* ─── Subject progress ─────────────────────────────────────── */
 .subject-progress-grid{margin-top:18px;column-gap:28px}
+.section-panel>.performance-summary{margin:14px 0 20px}
 .subject-progress-grid>div>div:first-child{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:13px}
 .subject-progress-grid span{color:var(--muted)}
 .progress-track{width:100%;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
@@ -502,7 +518,8 @@ select:focus,.month-picker input:focus{border-color:var(--wine)}
   .desk-aside,.settings-layout,.subject-progress-grid{grid-template-columns:1fr}.contents-panel{padding:14px}.calendar-day{width:100%;height:36px}
   .activity-panel,.catalogue,.archive-panel,.section-panel{padding:16px 14px}.activity-heading{align-items:flex-start;flex-direction:column;gap:5px}
   .volume-shelf{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.volume{height:68px}.volume strong{font-size:17px}
-  .library-filters{flex-direction:column;gap:8px}.catalogue-head,.library-reader-nav{flex-wrap:wrap}.archive-status{display:none}
+  .library-filters{flex-direction:column;gap:8px}.catalogue-head,.library-reader-nav,.pyq-filter-heading{flex-wrap:wrap}.archive-status{display:none}
+  .performance-summary{flex-wrap:wrap}.performance-summary>div{flex:1;min-width:120px}.pyq-filter-metrics{padding:13px}
   .site-footer{gap:7px;flex-wrap:wrap}.site-footer small{font-size:10px}.site-footer .text-button{font-size:10px}
   .share-actions{flex-wrap:wrap}.notice{align-items:flex-start;font-size:12px}.toast{width:max-content}
 }
